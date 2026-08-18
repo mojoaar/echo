@@ -154,6 +154,7 @@ code {
   line-height: 1.1;
   word-break: break-all;
   letter-spacing: -0.01em;
+  color: var(--green);
 }
 
 .ip-hero.muted {

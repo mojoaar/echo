@@ -55,6 +55,7 @@ export default async function Page({
   const params = await searchParams;
   const rawTarget = params.ip?.trim() ?? null;
   const visitorIp = extractVisitorIp(await headers());
+  const baseUrl = process.env.APP_URL ?? 'https://echo.johansen.foo';
 
   let target: string | null = null;
   let error: string | null = null;
@@ -101,7 +102,7 @@ export default async function Page({
       <main>
         <section className="hero">
           <p className="hero-label">{showsOwnIp ? 'Your IP address' : 'Lookup result'}</p>
-          <p className="hero-sub">...you, from the internet's perspective.</p>
+          <p className="hero-sub">what the internet sees when you connect</p>
           {info ? (
             <>
               {info.isPrivate ? (
@@ -166,8 +167,8 @@ export default async function Page({
       <footer>
         <p>echo — IP + geo lookup. Data via db-ip (CC BY 4.0).</p>
         <p>
-          <code>curl https://echo.johansen.foo/api/ip</code> ·{' '}
-          <code>curl https://echo.johansen.foo/api/json</code>
+          <code>curl {baseUrl}/api/ip</code> ·{' '}
+          <code>curl {baseUrl}/api/json</code>
         </p>
         <p>
           Built with ❤️ by{' '}

@@ -2,24 +2,28 @@ import type { Metadata } from 'next';
 import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
-export const metadata: Metadata = {
-  title: 'echo | what the internet sees when you connect',
-  description:
-    'See your IP address, location, ISP and more. Echo shows you exactly what the internet sees when you connect.',
-  applicationName: 'echo',
-  metadataBase: new URL('https://echo.johansen.foo'),
-  openGraph: {
-    title: 'echo',
-    description: 'What the internet sees when you connect.',
-    type: 'website',
-    url: 'https://echo.johansen.foo',
-  },
-  icons: {
-    icon: '/favicon.svg',
-    shortcut: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
-  },
-};
+const siteUrl = process.env.APP_URL ?? 'https://echo.johansen.foo';
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: 'echo | what the internet sees when you connect',
+    description:
+      'See your IP address, location, ISP and more. Echo shows you exactly what the internet sees when you connect.',
+    applicationName: 'echo',
+    metadataBase: new URL(siteUrl),
+    openGraph: {
+      title: 'echo',
+      description: 'What the internet sees when you connect.',
+      type: 'website',
+      url: siteUrl,
+    },
+    icons: {
+      icon: '/favicon.svg',
+      shortcut: '/favicon.ico',
+      apple: '/apple-touch-icon.png',
+    },
+  };
+}
 
 const jetbrains = JetBrains_Mono({
   subsets: ['latin'],
