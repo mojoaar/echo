@@ -12,11 +12,11 @@ services:
       - no-new-privileges:true
     pids_limit: 256
     ports:
-      - "127.0.0.1:3100:3000"
+      - "3100:3000"
     volumes:
       - echo-data:/data
     environment:
-      TZ: ${TZ:-UTC}
+      TZ: ${TZ:-Europe/Copenhagen}
       APP_URL: ${APP_URL:-https://echo.johansen.foo}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-30}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}

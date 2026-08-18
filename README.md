@@ -100,20 +100,20 @@ docker compose up -d
 
 No checkout of the source is needed — the image is pulled from the GitHub Container Registry.
 
-The app listens on `127.0.0.1:3100`. The lookup history persists in the `echo-data` volume. TLS terminates on your existing reverse proxy in front of the app. To pin a specific release instead of `latest`, set `ECHO_TAG` (for example `ECHO_TAG=v1.2.0` in the environment or a `.env` file next to the compose file).
+The app listens on port `3100` (bound to all interfaces; keep the host firewall closed to direct access if the reverse proxy is the only intended entry). The lookup history persists in the `echo-data` volume. TLS terminates on your existing reverse proxy in front of the app. To pin a specific release instead of `latest`, set `ECHO_TAG` (for example `ECHO_TAG=v1.2.0` in the environment or a `.env` file next to the compose file).
 
 Prebuilt images are published to GitHub Container Registry on every release:
 
 ```bash
 docker pull ghcr.io/mojoaar/echo:v1.2.0
-docker run -d --name echo -p 127.0.0.1:3100:3000 \
+docker run -d --name echo -p 3100:3000 \
   -v echo-data:/data \
   -e APP_URL=https://echo.johansen.foo \
-  -e TZ=UTC \
+  -e TZ=Europe/Copenhagen \
   ghcr.io/mojoaar/echo:v1.2.0
 ```
 
-The default timezone is `UTC`; set `TZ` (for example `Europe/Copenhagen`) to change it.
+The default timezone is `Europe/Copenhagen`; set `TZ` to change it (for example `UTC`).
 
 The app trusts `x-real-ip` first, then `x-forwarded-for`. The reverse proxy must overwrite these headers with the verified client address.
 
