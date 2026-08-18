@@ -165,6 +165,12 @@ export default async function Page({
           <code>curl https://echo.johansen.foo/api/ip</code> ·{' '}
           <code>curl https://echo.johansen.foo/api/json</code>
         </p>
+        <p>
+          Built with ❤️ by{' '}
+          <a href="https://johansen.foo" target="_blank" rel="noreferrer">
+            Morten Johansen
+          </a>
+        </p>
       </footer>
     </div>
   );

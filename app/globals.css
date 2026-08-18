@@ -224,8 +224,20 @@ code {
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: 1fr;
   gap: 14px;
+}
+
+@media (min-width: 640px) {
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 960px) {
+  .cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .card {
@@ -345,6 +357,17 @@ footer {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+footer a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+footer a:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
 }
 
 .theme-toggle {
