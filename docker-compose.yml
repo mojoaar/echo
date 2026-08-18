@@ -1,7 +1,6 @@
 services:
   echo:
-    build: .
-    image: echo:latest
+    image: ghcr.io/mojoaar/echo:${ECHO_TAG:-latest}
     container_name: echo
     restart: unless-stopped
     read_only: true

@@ -91,21 +91,26 @@ Returns the most recent lookups, newest first. `limit` is clamped to `1..100` an
 
 ## Deployment
 
+Copy `docker-compose.yml` to the host, then:
+
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-The app listens on `127.0.0.1:3100`. The lookup history persists in the `echo-data` volume. TLS terminates on your existing reverse proxy in front of the app. To pin the image to a tagged release: `docker build -t echo:1.0.0 .`.
+No checkout of the source is needed — the image is pulled from the GitHub Container Registry.
+
+The app listens on `127.0.0.1:3100`. The lookup history persists in the `echo-data` volume. TLS terminates on your existing reverse proxy in front of the app. To pin a specific release instead of `latest`, set `ECHO_TAG` (for example `ECHO_TAG=v1.2.0` in the environment or a `.env` file next to the compose file).
 
 Prebuilt images are published to GitHub Container Registry on every release:
 
 ```bash
-docker pull ghcr.io/mojoaar/echo:v1.1.0
+docker pull ghcr.io/mojoaar/echo:v1.2.0
 docker run -d --name echo -p 127.0.0.1:3100:3000 \
   -v echo-data:/data \
   -e APP_URL=https://echo.johansen.foo \
   -e TZ=UTC \
-  ghcr.io/mojoaar/echo:v1.1.0
+  ghcr.io/mojoaar/echo:v1.2.0
 ```
 
 The default timezone is `UTC`; set `TZ` (for example `Europe/Copenhagen`) to change it.
