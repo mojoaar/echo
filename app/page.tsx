@@ -11,8 +11,11 @@ import { MapTrigger } from '@/components/ui/MapModal';
 import RecentFeed from '@/components/ui/RecentFeed';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import TypeOnText from '@/components/ui/TypeOnText';
+import { getVersion } from '@/lib/version';
 
 export const dynamic = 'force-dynamic';
+
+const appVersion = getVersion();
 
 type InfoCardProps = {
   label: string;
@@ -176,7 +179,16 @@ export default async function Page({
           <span title="AI" aria-hidden="true">🤖</span> by{' '}
           <a href="https://johansen.foo/" target="_blank" rel="noreferrer">
             Morten Johansen
+          </a>{' '}
+          (
+          <a
+            href={`https://github.com/mojoaar/echo/releases/tag/v${appVersion}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            v{appVersion}
           </a>
+          )
         </p>
       </footer>
     </div>
