@@ -1,6 +1,6 @@
 {
   "name": "echo",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,7 +9,10 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "fetch:mmdb": "node scripts/fetch-mmdb.mjs"
+    "fetch:mmdb": "node scripts/fetch-mmdb.mjs",
+    "release:patch": "node scripts/release.mjs patch",
+    "release:minor": "node scripts/release.mjs minor",
+    "release:major": "node scripts/release.mjs major"
   },
   "dependencies": {
     "@photostructure/tz-lookup": "^11.6.1",

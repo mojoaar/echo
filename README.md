@@ -1,0 +1,120 @@
+# echo
+
+Yet another "what is my IP" service — but this one tells you what the internet sees when you connect: your IP address, location, ISP/ASN, timezone, coordinates (with a map) and hostname. All lookups run server-side against a bundled offline geo database.
+
+## Features
+
+- Server-side IP and geo lookup — no client-side calls to third-party services
+- Lookup any IP address with `?ip=` or query the API directly
+- IP history log stored in SQLite, exposed through `/api/history`
+- Per-visitor rate limiting on the JSON API
+- Light and dark themes with a manual toggle
+- Copy / copy-as-JSON buttons and a Leaflet map modal for coordinates
+- Self-hosted Umami analytics, enabled through environment variables
+- Ships as a Docker image with a persistent data volume
+
+## Tech stack
+
+- [Next.js 16](https://nextjs.org) (App Router, TypeScript, standalone output)
+- [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) for the lookup history
+- [mmdb-lib](https://github.com/nicolo-ribaudo/mmdb-lib) to read the bundled [db-ip](https://db-ip.com) MMDB files
+- [@photostructure/tz-lookup](https://github.com/photostructure/tz-lookup) to derive the timezone from coordinates
+- [Vitest](https://vitest.dev) for tests
+- [Docker](https://docker.com) for delivery
+
+## Local development
+
+```bash
+npm install
+npm run fetch:mmdb     # downloads db-ip City + ASN databases into data/
+npm run dev
+```
+
+```bash
+npm test               # run the test suite
+npm run lint           # typecheck (tsc --noEmit)
+```
+
+## Environment variables
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `APP_URL` | `https://echo.johansen.foo` | Public origin used in metadata and footer curl examples |
+| `RATE_LIMIT_MAX` | `30` | Max `/api/json` requests per visitor IP per window |
+| `RATE_LIMIT_WINDOW_MS` | `60000` | Rate-limit window length in milliseconds |
+| `UMAMI_SCRIPT_URL` | _(unset)_ | Umami script URL; when set together with `UMAMI_WEBSITE_ID`, the analytics script is injected |
+| `UMAMI_WEBSITE_ID` | _(unset)_ | Umami website id |
+
+The following are set inside the official Docker image and are only needed when running outside it: `PORT`, `HOSTNAME`, `DB_PATH`, `SCHEMA_PATH`, `MMDB_CITY`, `MMDB_ASN`.
+
+## API
+
+### `GET /api/ip`
+
+Returns the caller's IP address as plain text.
+
+```
+$ curl https://echo.johansen.foo/api/ip
+203.0.113.7
+```
+
+### `GET /api/json`
+
+Returns the full geo payload for the caller's IP address, or for a specific address when `?ip=` is provided. Responses are CORS-enabled and carry `x-ratelimit-limit` and `x-ratelimit-remaining` headers. Exceeding the per-IP window returns `429` with a `retry-after` header.
+
+```
+$ curl https://echo.johansen.foo/api/json?ip=8.8.8.8
+```
+
+```json
+{
+  "ip": "8.8.8.8",
+  "city": "Mountain View",
+  "region": "California",
+  "country": "US",
+  "countryName": "United States",
+  "flag": "🇺🇸",
+  "org": "Google LLC",
+  "asn": "AS15169",
+  "timezone": "America/Los_Angeles",
+  "utcOffset": "-08:00",
+  "latitude": 37.422,
+  "longitude": -122.085,
+  "hostname": null,
+  "isPrivate": false
+}
+```
+
+### `GET /api/history?limit=20`
+
+Returns the most recent lookups, newest first. `limit` is clamped to `1..100` and defaults to `20`.
+
+## Deployment
+
+```bash
+docker compose up -d --build
+```
+
+The app listens on `127.0.0.1:3100`. The lookup history persists in the `echo-data` volume. TLS terminates on your existing reverse proxy in front of the app. To pin the image to a tagged release: `docker build -t echo:1.0.0 .`.
+
+## Releasing
+
+This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and keeps a [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) formatted changelog. Releases are cut with a single command:
+
+```bash
+npm run release:patch   # 1.0.0 -> 1.0.1
+npm run release:minor   # 1.0.0 -> 1.1.0
+npm run release:major   # 1.0.0 -> 2.0.0
+```
+
+Each release bumps the version, moves the `## [Unreleased]` entries into a dated changelog section, commits, and creates a `vX.Y.Z` git tag. The release command refuses to run on a dirty working tree.
+
+Once a remote is added, changelog version-link footers can be appended to the generated sections.
+
+## Data
+
+Geo data is provided by [db-ip.com](https://db-ip.com) and is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+## License
+
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Morten Johansen (johansen.foo).
