@@ -10,9 +10,21 @@ describe('extractVisitorIp', () => {
     const headers = new Headers({ 'x-forwarded-for': '8.8.8.8' });
     expect(extractVisitorIp(headers)).toBe('8.8.8.8');
   });
+  it('normalizes mapped-IPv4 IPv6 in x-forwarded-for', () => {
+    const headers = new Headers({ 'x-forwarded-for': '::ffff:8.8.8.8' });
+    expect(extractVisitorIp(headers)).toBe('8.8.8.8');
+  });
+  it('normalizes mapped-IPv4 IPv6 as first x-forwarded-for entry', () => {
+    const headers = new Headers({ 'x-forwarded-for': '::ffff:8.8.8.8, 1.2.3.4' });
+    expect(extractVisitorIp(headers)).toBe('8.8.8.8');
+  });
   it('falls back to x-real-ip', () => {
     const headers = new Headers({ 'x-real-ip': '198.51.100.4' });
     expect(extractVisitorIp(headers)).toBe('198.51.100.4');
+  });
+  it('normalizes mapped-IPv4 IPv6 in x-real-ip', () => {
+    const headers = new Headers({ 'x-real-ip': '::ffff:8.8.8.8' });
+    expect(extractVisitorIp(headers)).toBe('8.8.8.8');
   });
   it('returns null when no usable header exists', () => {
     expect(extractVisitorIp(new Headers())).toBeNull();
@@ -64,6 +76,19 @@ describe('classifyIp', () => {
     expect(classifyIp('100.64.0.1')).toBe('private');
     expect(classifyIp('224.0.0.1')).toBe('reserved');
   });
+  it('treats unspecified addresses as reserved', () => {
+    expect(classifyIp('::')).toBe('reserved');
+    expect(classifyIp('0:0:0:0:0:0:0:0')).toBe('reserved');
+  });
+  it('treats IPv6 multicast as reserved', () => {
+    expect(classifyIp('ff02::1')).toBe('reserved');
+    expect(classifyIp('ff00::')).toBe('reserved');
+  });
+  it('keeps genuine public IPv6 public', () => {
+    expect(classifyIp('febf::1')).toBe('linklocal');
+    expect(classifyIp('fdff::1')).toBe('private');
+    expect(classifyIp('fe00::1')).toBe('public');
+  });
 });
 
 describe('isPublicIp', () => {
@@ -71,5 +96,11 @@ describe('isPublicIp', () => {
     expect(isPublicIp('8.8.8.8')).toBe(true);
     expect(isPublicIp('192.168.1.1')).toBe(false);
     expect(isPublicIp('junk')).toBe(false);
+  });
+  it('returns false for unspecified and multicast IPv6', () => {
+    expect(isPublicIp('::')).toBe(false);
+    expect(isPublicIp('0:0:0:0:0:0:0:0')).toBe(false);
+    expect(isPublicIp('ff02::1')).toBe(false);
+    expect(isPublicIp('ff00::')).toBe(false);
   });
 });
