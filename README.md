@@ -112,6 +112,38 @@ The default timezone is `UTC`; set `TZ` (for example `Europe/Copenhagen`) to cha
 
 The app trusts `x-real-ip` first, then `x-forwarded-for`. The reverse proxy must overwrite these headers with the verified client address.
 
+### Nginx Proxy Manager
+
+If echo runs behind Nginx Proxy Manager, the proxy headers are set automatically — no manual configuration is needed. Every NPM 2.x Proxy Host generates a location block that sets:
+
+- `X-Real-IP` from `$remote_addr`
+- `X-Forwarded-For` from `$proxy_add_x_forwarded_for`
+- `X-Forwarded-Proto` from `$scheme`
+- `X-Forwarded-Host` from `$host`
+
+The app trusts `X-Real-IP` first, so it always sees the real visitor address. Client-supplied `X-Real-IP` / `X-Forwarded-For` values are overwritten by nginx and have no effect.
+
+Manual steps are only needed when an extra hop sits between NPM and the app:
+
+- **Cloudflare (or another CDN) in front of NPM** — NPM then sees Cloudflare's IP, not the visitor's. In the proxy host's **Advanced** tab add:
+
+  ```nginx
+  set_real_ip_from 173.245.48.0/20; # repeat for all ranges at https://www.cloudflare.com/ips/
+  real_ip_header CF-Connecting-IP;
+  ```
+
+  or `real_ip_header X-Forwarded-For; real_ip_recursive on;`.
+
+- **NPM forwards through an intermediate proxy** before reaching echo — same pattern: `set_real_ip_from` the intermediate proxy's IP range, then `real_ip_header X-Forwarded-For; real_ip_recursive on;`.
+
+Verify after deploying:
+
+```bash
+curl -H 'X-Real-IP: 1.1.1.1' -H 'X-Forwarded-For: 1.1.1.1' https://echo.johansen.foo/api/ip
+```
+
+must return your real public IP — never `1.1.1.1`. The same setup applies to any service behind NPM, including umami.
+
 ## Releasing
 
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and keeps a [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) formatted changelog. Releases are cut with a single command:
