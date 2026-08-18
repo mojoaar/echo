@@ -164,7 +164,13 @@ export default async function Page({
       </main>
 
       <footer>
-        <p>echo — IP + geo lookup. Data via db-ip (CC BY 4.0).</p>
+        <p>
+          echo — IP + geo lookup. Data via{' '}
+          <a href="https://db-ip.com/" target="_blank" rel="noreferrer">
+            db-ip
+          </a>{' '}
+          (CC BY 4.0).
+        </p>
         <p>
           <code>curl {baseUrl}/api/ip</code> ·{' '}
           <code>curl {baseUrl}/api/json</code>
