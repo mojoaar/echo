@@ -1,0 +1,16 @@
+services:
+  echo:
+    build: .
+    image: echo:latest
+    container_name: echo
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3000"
+    volumes:
+      - echo-data:/data
+    environment:
+      UMAMI_SCRIPT_URL: ${UMAMI_SCRIPT_URL:-https://umami.johansen.foo/script.js}
+      UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-2dd1b560-7022-49d1-8063-bd3ccc99f21d}
+
+volumes:
+  echo-data:
