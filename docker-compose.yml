@@ -4,6 +4,14 @@ services:
     image: echo:latest
     container_name: echo
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
     ports:
       - "127.0.0.1:3100:3000"
     volumes:
