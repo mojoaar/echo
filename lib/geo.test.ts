@@ -14,6 +14,15 @@ const cityRecords: Record<string, unknown> = {
     city: { names: { en: 'Mountain View' } },
     location: { latitude: 37.4223, longitude: -122.0848, time_zone: 'America/Los_Angeles' },
   },
+  '1.1.1.1': {
+    country: { iso_code: 'AU', names: { en: 'Australia' } },
+    city: { names: { en: 'Brisbane' } },
+    location: { latitude: -27.4679, longitude: 153.0278 },
+  },
+  '9.9.9.9': {
+    country: { iso_code: 'US', names: { en: 'United States' } },
+    location: { latitude: 200, longitude: 200 },
+  },
 };
 
 const asnRecords: Record<string, unknown> = {
@@ -102,5 +111,17 @@ describe('lookupInfo', () => {
   it('keeps hostname null when hostname is disabled', async () => {
     const info = await lookupInfo('8.8.8.8', { hostname: false, readers: stubReaders });
     expect(info.hostname).toBeNull();
+  });
+
+  it('derives timezone from coordinates when the city record has no time_zone', async () => {
+    const info = await lookupInfo('1.1.1.1', { hostname: false, readers: stubReaders });
+    expect(info.timezone).toBe('Australia/Brisbane');
+    expect(info.utcOffset).toMatch(/^[+-]\d{2}:\d{2}$/);
+  });
+
+  it('keeps timezone null when coordinates are invalid', async () => {
+    const info = await lookupInfo('9.9.9.9', { hostname: false, readers: stubReaders });
+    expect(info.timezone).toBeNull();
+    expect(info.utcOffset).toBeNull();
   });
 });

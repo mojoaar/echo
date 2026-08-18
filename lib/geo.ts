@@ -1,6 +1,7 @@
 import { promises as dns } from 'node:dns';
 import { readFileSync } from 'node:fs';
 import * as mmdb from 'mmdb-lib';
+import tzLookup from '@photostructure/tz-lookup';
 import { classifyIp, normalizeIp } from './ip';
 import type { AsnRecord, CityRecord, IpInfo } from './types';
 
@@ -160,6 +161,13 @@ export async function lookupInfo(
       info.latitude = cityRow.location.latitude ?? null;
       info.longitude = cityRow.location.longitude ?? null;
       info.timezone = cityRow.location.time_zone ?? null;
+      if (!info.timezone && info.latitude != null && info.longitude != null) {
+        try {
+          info.timezone = tzLookup(info.latitude, info.longitude);
+        } catch {
+          info.timezone = null;
+        }
+      }
       if (info.timezone) info.utcOffset = utcOffsetFor(info.timezone);
     }
   }

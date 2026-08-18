@@ -58,20 +58,23 @@ export default function MapModal({ lat, lon, onClose }: { lat: number; lon: numb
   const [mapError, setMapError] = useState(false);
 
   useEffect(() => {
-    let map: { remove: () => void } | null = null;
+    let map: { remove: () => void; invalidateSize: () => void } | null = null;
     let cancelled = false;
     setMapError(false);
     ensureLeaflet()
       .then(() => {
         if (cancelled || !ref.current || !window.L) return;
         const L = window.L;
-        map = L.map(ref.current, { scrollWheelZoom: false }).setView([lat, lon], 11) as unknown as { remove: () => void };
+        map = L.map(ref.current, { scrollWheelZoom: false }).setView([lat, lon], 11) as unknown as { remove: () => void; invalidateSize: () => void };
         L.tileLayer(tileTheme(), {
           attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
           subdomains: 'abcd',
           maxZoom: 19,
         }).addTo(map);
         L.marker([lat, lon]).addTo(map).bindPopup(`${lat.toFixed(4)}, ${lon.toFixed(4)}`).openPopup();
+        requestAnimationFrame(() => {
+          if (!cancelled && map) map.invalidateSize();
+        });
       })
       .catch(() => {
         if (!cancelled) setMapError(true);
