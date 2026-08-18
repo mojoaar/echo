@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 let leafletPromise: Promise<void> | null = null;
 
@@ -136,7 +137,7 @@ export default function MapModal({ lat, lon, onClose }: { lat: number; lon: numb
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="map-modal-title" onClick={onClose}>
       <div ref={dialogRef} className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
@@ -150,6 +151,7 @@ export default function MapModal({ lat, lon, onClose }: { lat: number; lon: numb
         )}
         <div className="modal-note">Approximate location based on IP address — city-level precision.</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
