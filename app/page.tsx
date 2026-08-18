@@ -18,11 +18,10 @@ type InfoCardProps = {
   label: string;
   value: string | null;
   hint?: string;
-  code?: string | null;
   children?: React.ReactNode;
 };
 
-function InfoCard({ label, value, hint, code, children }: InfoCardProps) {
+function InfoCard({ label, value, hint, children }: InfoCardProps) {
   return (
     <div className="card">
       <div className="card-label">{label}</div>
@@ -31,7 +30,6 @@ function InfoCard({ label, value, hint, code, children }: InfoCardProps) {
       ) : (
         <div className="card-value muted">unavailable</div>
       )}
-      {code ? <span className="chip">{code}</span> : null}
       {hint ? <div className="card-hint">{hint}</div> : null}
       {children}
     </div>
@@ -131,7 +129,6 @@ export default async function Page({
           <InfoCard
             label="Country"
             value={info?.countryName ? `${info.flag ?? ''} ${info.countryName}`.trim() : null}
-            code={info?.countryCode ?? null}
           />
           <InfoCard
             label="Coordinates"

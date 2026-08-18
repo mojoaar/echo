@@ -300,15 +300,7 @@ code {
   color: var(--muted);
 }
 
-.chip {
-  align-self: flex-start;
-  font-size: 0.68rem;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--accent);
-  background: var(--surface-2);
-}
+
 
 .feed {
   margin-top: 40px;
