@@ -84,9 +84,18 @@ export function flagEmoji(countryCode: string): string {
 export function utcOffsetFor(timeZone: string): string | null {
   try {
     const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' }).formatToParts(new Date());
-    const raw = parts.find((p) => p.type === 'timeZoneName')?.value ?? '';
-    const cleaned = raw.replace('GMT', '').replace('UTC', '').replace(/\u2212/g, '-').trim();
-    return cleaned || null;
+    const raw = (parts.find((p) => p.type === 'timeZoneName')?.value ?? '').replace(/\u2212/g, '-');
+    const match = raw.match(/([+-]?)(\d{1,2})(?::(\d{2}))?/);
+    if (!match) {
+      return raw.includes('GMT') || raw.includes('UTC') ? '+00:00' : null;
+    }
+    const hours = Number(match[2]);
+    const minutes = match[3] ? Number(match[3]) : 0;
+    if (!Number.isInteger(hours) || hours < 0 || !Number.isInteger(minutes) || minutes < 0 || minutes > 59) {
+      return null;
+    }
+    const sign = hours === 0 && minutes === 0 ? '+' : match[1] === '-' ? '-' : '+';
+    return `${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   } catch {
     return null;
   }

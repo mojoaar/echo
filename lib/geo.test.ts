@@ -42,8 +42,22 @@ describe('utcOffsetFor', () => {
     const offset = utcOffsetFor('America/Los_Angeles');
     expect(offset).toMatch(/^[+-]\d{2}:\d{2}$/);
   });
+  it('zero-pads and signs single-digit offsets', () => {
+    const offset = utcOffsetFor('Asia/Kolkata');
+    expect(offset).toMatch(/^[+-]\d{2}:\d{2}$/);
+    expect(offset?.startsWith('+')).toBe(true);
+  });
+  it('returns +00:00 for zero-offset zones', () => {
+    expect(utcOffsetFor('UTC')).toBe('+00:00');
+    expect(utcOffsetFor('Etc/UTC')).toBe('+00:00');
+    expect(utcOffsetFor('GMT')).toBe('+00:00');
+    expect(utcOffsetFor('Etc/GMT')).toBe('+00:00');
+  });
   it('returns null for invalid zones', () => {
     expect(utcOffsetFor('Not/AZone')).toBeNull();
+  });
+  it('returns null for an empty zone', () => {
+    expect(utcOffsetFor('')).toBeNull();
   });
 });
 
