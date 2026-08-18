@@ -291,11 +291,6 @@ code {
   word-break: break-word;
 }
 
-.card-hint {
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-
 .muted {
   color: var(--muted);
 }

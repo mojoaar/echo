@@ -1,9 +1,9 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GET } from './route';
-import { initDb, insertLookup } from '@/lib/db';
+import { closeDb, initDb, insertLookup } from '@/lib/db';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -11,6 +11,10 @@ describe('GET /api/history', () => {
   beforeAll(() => {
     const dir = mkdtempSync(join(tmpdir(), 'echo-hist-'));
     initDb(join(dir, 'test.db'));
+  });
+
+  afterAll(() => {
+    closeDb();
   });
 
   it('returns recent lookups newest first', async () => {

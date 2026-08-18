@@ -17,11 +17,10 @@ export const dynamic = 'force-dynamic';
 type InfoCardProps = {
   label: string;
   value: string | null;
-  hint?: string;
   children?: React.ReactNode;
 };
 
-function InfoCard({ label, value, hint, children }: InfoCardProps) {
+function InfoCard({ label, value, children }: InfoCardProps) {
   return (
     <div className="card">
       <div className="card-label">{label}</div>
@@ -30,7 +29,6 @@ function InfoCard({ label, value, hint, children }: InfoCardProps) {
       ) : (
         <div className="card-value muted">unavailable</div>
       )}
-      {hint ? <div className="card-hint">{hint}</div> : null}
       {children}
     </div>
   );

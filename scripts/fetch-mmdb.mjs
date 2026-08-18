@@ -1,4 +1,4 @@
-import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync } from 'node:fs';
 import https from 'node:https';
 import { pipeline } from 'node:stream/promises';
 import { createGunzip } from 'node:zlib';
@@ -21,12 +21,18 @@ function hasMmdbMagic(file) {
 function download(url, dest) {
   const tmp = `${dest}.tmp`;
   const out = createWriteStream(tmp);
+  const rejectWith = (err) => {
+    try {
+      unlinkSync(tmp);
+    } catch {}
+    reject(err);
+  };
   return new Promise((resolve, reject) => {
     https
       .get(url, (res) => {
         if (res.statusCode !== 200) {
           out.destroy();
-          reject(new Error(`HTTP ${res.statusCode} for ${url}`));
+          rejectWith(new Error(`HTTP ${res.statusCode} for ${url}`));
           return;
         }
         pipeline(res, createGunzip(), out)
@@ -36,12 +42,12 @@ function download(url, dest) {
               console.log(`ok ${dest} (${readFileSync(dest).length} bytes)`);
               resolve();
             } else {
-              reject(new Error(`bad mmdb magic in ${tmp}`));
+              rejectWith(new Error(`bad mmdb magic in ${tmp}`));
             }
           })
-          .catch(reject);
+          .catch(rejectWith);
       })
-      .on('error', reject);
+      .on('error', rejectWith);
   });
 }
 

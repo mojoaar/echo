@@ -16,5 +16,7 @@ describe('GET /api/ip', () => {
   it('returns 400 when no ip is present', async () => {
     const res = await GET(new Request('http://localhost/api/ip'));
     expect(res.status).toBe(400);
+    expect(res.headers.get('content-type')).toBe('text/plain; charset=utf-8');
+    expect(res.headers.get('cache-control')).toBe('no-store');
   });
 });
