@@ -10,6 +10,7 @@ import LookupForm from '@/components/ui/LookupForm';
 import { MapTrigger } from '@/components/ui/MapModal';
 import RecentFeed from '@/components/ui/RecentFeed';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import TypeOnText from '@/components/ui/TypeOnText';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,11 +101,14 @@ export default async function Page({
       <main>
         <section className="hero">
           <p className="hero-label">{showsOwnIp ? 'Your IP address' : 'Lookup result'}</p>
+          <p className="hero-sub">...you, from the internet's perspective.</p>
           {info ? (
             <>
-              <h1 className="ip-hero">
-                {info.isPrivate ? 'You are on a private network' : info.ip}
-              </h1>
+              {info.isPrivate ? (
+                <h1 className="ip-hero">You are on a private network</h1>
+              ) : (
+                <TypeOnText text={info.ip} />
+              )}
               <div className="hero-actions">
                 {!info.isPrivate && <CopyButton value={info.ip} label="Copy" />}
                 <CopyButton value={JSON.stringify(info, null, 2)} label="Copy as JSON" />

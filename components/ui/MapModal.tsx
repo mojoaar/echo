@@ -21,14 +21,30 @@ function ensureLeaflet(): Promise<void> {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    document.head.appendChild(link);
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.onload = () => resolve();
+    let cssLoaded = false;
+    let jsLoaded = false;
+    const finish = () => {
+      if (cssLoaded && jsLoaded) resolve();
+    };
+    link.onload = () => {
+      cssLoaded = true;
+      finish();
+    };
+    link.onerror = () => {
+      leafletPromise = null;
+      reject(new Error('leaflet css failed to load'));
+    };
+    script.onload = () => {
+      jsLoaded = true;
+      finish();
+    };
     script.onerror = () => {
       leafletPromise = null;
       reject(new Error('leaflet failed to load'));
     };
+    document.head.appendChild(link);
     document.head.appendChild(script);
   });
   return leafletPromise;

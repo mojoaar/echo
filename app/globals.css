@@ -13,6 +13,7 @@
   --accent: #7c6af7;
   --accent-strong: #9a8cff;
   --accent-glow: rgba(124, 106, 247, 0.28);
+  --green: #34d399;
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
   color-scheme: dark;
 }
@@ -27,6 +28,7 @@
   --accent: #5d4bf0;
   --accent-strong: #4637d6;
   --accent-glow: rgba(93, 75, 240, 0.14);
+  --green: #059669;
   --shadow: 0 8px 30px rgba(23, 26, 36, 0.08);
   color-scheme: light;
 }
@@ -121,6 +123,29 @@ code {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 14px;
+}
+
+.hero-sub {
+  font-size: clamp(0.95rem, 2vw, 1.1rem);
+  color: var(--green);
+  font-style: italic;
+  max-width: 480px;
+  margin: 0 auto 10px;
+}
+
+.type-cursor {
+  display: inline-block;
+  width: 2px;
+  background: var(--green);
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: blink 0.7s step-end infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
 }
 
 .ip-hero {
