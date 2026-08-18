@@ -68,6 +68,9 @@ describe('utcOffsetFor', () => {
   it('returns null for an empty zone', () => {
     expect(utcOffsetFor('')).toBeNull();
   });
+  it('does not coerce a malformed gmt string to +00:00', () => {
+    expect(utcOffsetFor('GMT+xx')).toBeNull();
+  });
 });
 
 describe('lookupInfo', () => {

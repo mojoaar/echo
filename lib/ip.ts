@@ -35,6 +35,7 @@ export function classifyIp(ip: string): IpKind {
     const first = normalized.split(':')[0].padStart(4, '0');
     if (first >= 'fc00' && first <= 'fdff') return 'private';
     if (first >= 'fe80' && first <= 'febf') return 'linklocal';
+    if (first >= 'fe00' && first <= 'feff') return 'reserved';
     if (first >= 'ff00') return 'reserved';
     return 'public';
   }

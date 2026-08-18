@@ -87,7 +87,14 @@ describe('classifyIp', () => {
   it('keeps genuine public IPv6 public', () => {
     expect(classifyIp('febf::1')).toBe('linklocal');
     expect(classifyIp('fdff::1')).toBe('private');
-    expect(classifyIp('fe00::1')).toBe('public');
+    expect(classifyIp('fe00::1')).toBe('reserved');
+    expect(classifyIp('fec0::1')).toBe('reserved');
+  });
+  it('classifies fe00::/10 as reserved', () => {
+    expect(classifyIp('fe00::1')).toBe('reserved');
+    expect(classifyIp('fec0::1')).toBe('reserved');
+    expect(classifyIp('feef::1')).toBe('reserved');
+    expect(classifyIp('feff::1')).toBe('reserved');
   });
 });
 

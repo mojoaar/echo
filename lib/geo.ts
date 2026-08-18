@@ -27,8 +27,8 @@ function loadReader(path: string): ReaderLike | null {
 }
 
 export function createReaders(
-  cityPath = process.env.MMDB_CITY ?? 'data/dbip-city-lite.mmdb',
-  asnPath = process.env.MMDB_ASN ?? 'data/dbip-asn-lite.mmdb',
+  cityPath = process.env.MMDB_CITY || 'data/dbip-city-lite.mmdb',
+  asnPath = process.env.MMDB_ASN || 'data/dbip-asn-lite.mmdb',
 ): Readers {
   if (!cachedReaders) {
     cachedReaders = {
@@ -88,11 +88,12 @@ export function utcOffsetFor(timeZone: string): string | null {
     const raw = (parts.find((p) => p.type === 'timeZoneName')?.value ?? '').replace(/\u2212/g, '-');
     const match = raw.match(/([+-]?)(\d{1,2})(?::(\d{2}))?/);
     if (!match) {
-      return raw.includes('GMT') || raw.includes('UTC') ? '+00:00' : null;
+      const exact = raw.trim();
+      return exact === 'GMT' || exact === 'UTC' ? '+00:00' : null;
     }
     const hours = Number(match[2]);
     const minutes = match[3] ? Number(match[3]) : 0;
-    if (!Number.isInteger(hours) || hours < 0 || !Number.isInteger(minutes) || minutes < 0 || minutes > 59) {
+    if (!Number.isInteger(hours) || hours < 0 || hours > 14 || !Number.isInteger(minutes) || minutes < 0 || minutes > 59) {
       return null;
     }
     const sign = hours === 0 && minutes === 0 ? '+' : match[1] === '-' ? '-' : '+';
@@ -112,9 +113,15 @@ async function reverseLookup(ip: string): Promise<string | null> {
 }
 
 function resolveHostname(ip: string): Promise<string | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), HOSTNAME_TIMEOUT);
+  });
   return Promise.race([
-    reverseLookup(ip),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), HOSTNAME_TIMEOUT)),
+    reverseLookup(ip).finally(() => {
+      if (timer) clearTimeout(timer);
+    }),
+    timeout,
   ]);
 }
 
