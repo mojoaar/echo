@@ -9,6 +9,7 @@ interface RateLimiterOptions {
   max: number;
   windowMs: number;
   now?: () => number;
+  maxKeys?: number;
 }
 
 interface WindowEntry {
@@ -16,7 +17,7 @@ interface WindowEntry {
   count: number;
 }
 
-export function createRateLimiter({ max, windowMs, now = Date.now }: RateLimiterOptions) {
+export function createRateLimiter({ max, windowMs, now = Date.now, maxKeys = 10_000 }: RateLimiterOptions) {
   const entries = new Map<string, WindowEntry>();
 
   function sweep(current: number) {
@@ -32,6 +33,17 @@ export function createRateLimiter({ max, windowMs, now = Date.now }: RateLimiter
       const current = now();
       const entry = entries.get(key);
       if (!entry || current - entry.start >= windowMs) {
+        if (entries.size >= maxKeys) {
+          let oldestKey: string | undefined;
+          let oldestStart = Infinity;
+          for (const [existingKey, existingEntry] of entries) {
+            if (existingEntry.start < oldestStart) {
+              oldestStart = existingEntry.start;
+              oldestKey = existingKey;
+            }
+          }
+          if (oldestKey) entries.delete(oldestKey);
+        }
         entries.set(key, { start: current, count: 1 });
         sweep(current);
         return { allowed: true, retryAfter: 0, remaining: max - 1, limit: max };
@@ -41,6 +53,9 @@ export function createRateLimiter({ max, windowMs, now = Date.now }: RateLimiter
         return { allowed: true, retryAfter: 0, remaining: max - entry.count, limit: max };
       }
       return { allowed: false, retryAfter: entry.start + windowMs - current, remaining: 0, limit: max };
+    },
+    size(): number {
+      return entries.size;
     },
   };
 }

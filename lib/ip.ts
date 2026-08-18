@@ -13,14 +13,14 @@ export function normalizeIp(ip: string): string {
 }
 
 export function extractVisitorIp(headers: Headers): string | null {
-  const xff = headers.get('x-forwarded-for');
-  if (xff) {
-    const normalized = normalizeIp(xff.split(',')[0]);
-    if (isValidIp(normalized)) return normalized;
-  }
   const xri = headers.get('x-real-ip');
   if (xri) {
     const normalized = normalizeIp(xri);
+    if (isValidIp(normalized)) return normalized;
+  }
+  const xff = headers.get('x-forwarded-for');
+  if (xff) {
+    const normalized = normalizeIp(xff.split(',')[0]);
     if (isValidIp(normalized)) return normalized;
   }
   return null;

@@ -69,4 +69,12 @@ describe('getRateLimiter', () => {
     resetRateLimiter();
     expect(getRateLimiter()).not.toBe(first);
   });
+
+  it('caps the number of tracked keys', () => {
+    const limiter = createRateLimiter({ max: 1, windowMs: 60_000, maxKeys: 2, now: () => 1000 });
+    limiter.allow('a');
+    limiter.allow('b');
+    limiter.allow('c');
+    expect(limiter.size()).toBe(2);
+  });
 });

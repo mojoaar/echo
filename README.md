@@ -97,6 +97,8 @@ docker compose up -d --build
 
 The app listens on `127.0.0.1:3100`. The lookup history persists in the `echo-data` volume. TLS terminates on your existing reverse proxy in front of the app. To pin the image to a tagged release: `docker build -t echo:1.0.0 .`.
 
+The app trusts `x-real-ip` first, then `x-forwarded-for`. The reverse proxy must overwrite these headers with the verified client address.
+
 ## Releasing
 
 This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and keeps a [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) formatted changelog. Releases are cut with a single command:

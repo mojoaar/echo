@@ -103,4 +103,14 @@ describe('isPublicIp', () => {
     expect(isPublicIp('ff02::1')).toBe(false);
     expect(isPublicIp('ff00::')).toBe(false);
   });
+
+  it('prefers x-real-ip over x-forwarded-for', () => {
+    const headers = new Headers({ 'x-forwarded-for': '8.8.8.8', 'x-real-ip': '1.1.1.1' });
+    expect(extractVisitorIp(headers)).toBe('1.1.1.1');
+  });
+
+  it('falls back to x-forwarded-for when x-real-ip is absent', () => {
+    const headers = new Headers({ 'x-forwarded-for': '8.8.8.8' });
+    expect(extractVisitorIp(headers)).toBe('8.8.8.8');
+  });
 });
