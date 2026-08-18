@@ -3,7 +3,7 @@ import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'echo — what the internet sees when you connect',
+  title: 'echo | what the internet sees when you connect',
   description:
     'See your IP address, location, ISP and more. Echo shows you exactly what the internet sees when you connect.',
   applicationName: 'echo',
