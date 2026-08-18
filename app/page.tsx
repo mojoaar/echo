@@ -176,8 +176,10 @@ export default async function Page({
           <code>curl {baseUrl}/api/json</code>
         </p>
         <p>
-          Built with ❤️ by{' '}
-          <a href="https://johansen.foo" target="_blank" rel="noreferrer">
+          Built with{' '}
+          <span title="Love" aria-hidden="true">❤️</span>{' '}&{' '}
+          <span title="AI" aria-hidden="true">🤖</span> by{' '}
+          <a href="https://johansen.foo/" target="_blank" rel="noreferrer">
             Morten Johansen
           </a>
         </p>
