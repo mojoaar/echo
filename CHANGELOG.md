@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Security response headers and a Content-Security-Policy
+- TTL cache for hostname lookups and MMDB preload at boot
+- Coverage tooling via `npm run coverage`
+
+### Fixed
+
+- Rate limiting now keys on the proxy-verified address and bounds tracked keys
+- IPv6 `fe00::/10` classified as reserved
+- `/api/ip` 400 now returns `text/plain` with `no-store`
+- Hostname race timer cleared on completion
+
 ## [1.0.0] - 2026-08-18
 
 ### Added
