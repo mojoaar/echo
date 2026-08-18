@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+import PwaRegister from '@/components/ui/PwaRegister';
 
 const siteUrl = process.env.APP_URL ?? 'https://echo.johansen.foo';
 
@@ -46,11 +47,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" data-theme="dark" className={jetbrains.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="echo" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         {umamiUrl && umamiId ? (
           <script src={umamiUrl} defer data-website-id={umamiId} />
         ) : null}
       </head>
-      <body className="font-mono">{children}</body>
+      <body className="font-mono">
+        {children}
+        <PwaRegister />
+      </body>
     </html>
   );
 }
