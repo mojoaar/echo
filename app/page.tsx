@@ -102,7 +102,6 @@ export default async function Page({
       <main>
         <section className="hero">
           <p className="hero-label">{showsOwnIp ? 'Your IP address' : 'Lookup result'}</p>
-          <p className="hero-sub">what the internet sees when you connect</p>
           {info ? (
             <>
               {info.isPrivate ? (

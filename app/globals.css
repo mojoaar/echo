@@ -125,14 +125,6 @@ code {
   margin-bottom: 14px;
 }
 
-.hero-sub {
-  font-size: clamp(0.95rem, 2vw, 1.1rem);
-  color: var(--green);
-  font-style: italic;
-  max-width: 480px;
-  margin: 0 auto 10px;
-}
-
 .type-cursor {
   display: inline-block;
   width: 2px;
