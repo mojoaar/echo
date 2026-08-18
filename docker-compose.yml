@@ -10,6 +10,8 @@ services:
       - echo-data:/data
     environment:
       APP_URL: ${APP_URL:-https://echo.johansen.foo}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-30}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
       UMAMI_SCRIPT_URL: ${UMAMI_SCRIPT_URL:-https://umami.johansen.foo/script.js}
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-2dd1b560-7022-49d1-8063-bd3ccc99f21d}
 

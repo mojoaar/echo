@@ -1,9 +1,10 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GET, OPTIONS } from './route';
 import { initDb, closeDb } from '@/lib/db';
+import { resetRateLimiter } from '@/lib/ratelimit';
 
 describe('GET /api/json', () => {
   beforeAll(() => {
@@ -46,5 +47,63 @@ describe('GET /api/json', () => {
     expect(res.status).toBe(204);
     expect(res.headers.get('access-control-allow-origin')).toBe('*');
     expect(res.headers.get('access-control-allow-methods')).toContain('GET');
+  });
+});
+
+describe('GET /api/json rate limiting', () => {
+  const originalMax = process.env.RATE_LIMIT_MAX;
+  const req = (ip: string) =>
+    new Request('http://localhost/api/json', { headers: { 'x-forwarded-for': ip } });
+
+  beforeAll(() => {
+    process.env.RATE_LIMIT_MAX = '2';
+    resetRateLimiter();
+  });
+
+  afterEach(() => {
+    resetRateLimiter();
+  });
+
+  afterAll(() => {
+    if (originalMax === undefined) {
+      delete process.env.RATE_LIMIT_MAX;
+    } else {
+      process.env.RATE_LIMIT_MAX = originalMax;
+    }
+    resetRateLimiter();
+  });
+
+  it('returns 200 with limit headers while under the cap', async () => {
+    const res = await GET(req('1.1.1.1'));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-ratelimit-limit')).toBe('2');
+    expect(res.headers.get('x-ratelimit-remaining')).toBe('1');
+  });
+
+  it('returns 429 with retry-after once the cap is exceeded', async () => {
+    await GET(req('2.2.2.2'));
+    await GET(req('2.2.2.2'));
+    const blocked = await GET(req('2.2.2.2'));
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get('retry-after')).toMatch(/^\d+$/);
+    expect(blocked.headers.get('access-control-allow-origin')).toBe('*');
+    const body = await blocked.json();
+    expect(body.error).toBe('rate limit exceeded');
+  });
+
+  it('keeps separate rate windows per visitor ip', async () => {
+    await GET(req('3.3.3.3'));
+    await GET(req('3.3.3.3'));
+    await GET(req('3.3.3.3'));
+    const other = await GET(req('4.4.4.4'));
+    expect(other.status).toBe(200);
+  });
+
+  it('still answers OPTIONS preflight during a rate-limit block', async () => {
+    await GET(req('5.5.5.5'));
+    await GET(req('5.5.5.5'));
+    await GET(req('5.5.5.5'));
+    const res = await OPTIONS();
+    expect(res.status).toBe(204);
   });
 });
