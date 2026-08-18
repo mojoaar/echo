@@ -15,6 +15,8 @@ export interface Readers {
 }
 
 const HOSTNAME_TIMEOUT = 600;
+const HOSTNAME_TTL_MS = 3_600_000;
+const HOSTNAME_MAX_KEYS = 500;
 let cachedReaders: Readers | null = null;
 
 function loadReader(path: string): ReaderLike | null {
@@ -125,6 +127,38 @@ function resolveHostname(ip: string): Promise<string | null> {
   ]);
 }
 
+export interface HostnameCache<T> {
+  get: (key: string) => Promise<T>;
+}
+
+export function createHostnameCache<T>(
+  resolve: (key: string) => Promise<T>,
+  { ttlMs, maxKeys }: { ttlMs: number; maxKeys: number },
+  now: () => number = Date.now,
+): HostnameCache<T> {
+  const cache = new Map<string, { value: T; expires: number }>();
+  return {
+    get(key: string): Promise<T> {
+      const t = now();
+      const hit = cache.get(key);
+      if (hit && hit.expires > t) return Promise.resolve(hit.value);
+      return resolve(key).then((value) => {
+        if (cache.size >= maxKeys) {
+          const oldestKey = cache.keys().next().value;
+          if (oldestKey) cache.delete(oldestKey);
+        }
+        cache.set(key, { value, expires: t + ttlMs });
+        return value;
+      });
+    },
+  };
+}
+
+const cachedResolveHostname: HostnameCache<string | null> = createHostnameCache(resolveHostname, {
+  ttlMs: HOSTNAME_TTL_MS,
+  maxKeys: HOSTNAME_MAX_KEYS,
+});
+
 function emptyIpInfo(ip: string): IpInfo {
   return {
     ip,
@@ -147,7 +181,11 @@ function emptyIpInfo(ip: string): IpInfo {
 
 export async function lookupInfo(
   ip: string,
-  opts: { hostname?: boolean; readers?: Readers } = {},
+  opts: {
+    hostname?: boolean;
+    readers?: Readers;
+    hostnameResolver?: (ip: string) => Promise<string | null>;
+  } = {},
 ): Promise<IpInfo> {
   const normalized = normalizeIp(ip);
   const info = emptyIpInfo(normalized);
@@ -186,7 +224,8 @@ export async function lookupInfo(
   }
 
   if (opts.hostname) {
-    info.hostname = await resolveHostname(normalized);
+    const resolver = opts.hostnameResolver ?? cachedResolveHostname.get;
+    info.hostname = await resolver(normalized);
   }
   return info;
 }

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { lookupInfo, flagEmoji, utcOffsetFor, type Readers } from './geo';
+import { describe, it, expect, vi } from 'vitest';
+import { createHostnameCache, lookupInfo, flagEmoji, utcOffsetFor, type Readers } from './geo';
 
 const cityRecords: Record<string, unknown> = {
   '8.8.8.8': {
@@ -126,5 +126,43 @@ describe('lookupInfo', () => {
     const info = await lookupInfo('9.9.9.9', { hostname: false, readers: stubReaders });
     expect(info.timezone).toBeNull();
     expect(info.utcOffset).toBeNull();
+  });
+
+  it('resolves hostnames through the injected resolver', async () => {
+    const resolver = vi.fn(async () => 'cache.example.test');
+    const readers = { city: { get: () => undefined }, asn: { get: () => undefined } };
+    const info = await lookupInfo('8.8.8.8', { hostname: true, readers, hostnameResolver: resolver });
+    expect(info.hostname).toBe('cache.example.test');
+    expect(resolver).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('createHostnameCache', () => {
+  it('resolves once and serves the cached value', async () => {
+    const resolve = vi.fn(async (ip: string) => `ptr-${ip}`);
+    const cache = createHostnameCache(resolve, { ttlMs: 60_000, maxKeys: 10 }, () => 1000);
+    expect(await cache.get('8.8.8.8')).toBe('ptr-8.8.8.8');
+    expect(await cache.get('8.8.8.8')).toBe('ptr-8.8.8.8');
+    expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves again after the ttl elapses', async () => {
+    let clock = 0;
+    const resolve = vi.fn(async () => 'x');
+    const cache = createHostnameCache(resolve, { ttlMs: 100, maxKeys: 10 }, () => clock);
+    await cache.get('9.9.9.9');
+    clock = 101;
+    await cache.get('9.9.9.9');
+    expect(resolve).toHaveBeenCalledTimes(2);
+  });
+
+  it('evicts the oldest key when over max keys', async () => {
+    const resolve = vi.fn(async (ip: string) => ip);
+    const cache = createHostnameCache(resolve, { ttlMs: 60_000, maxKeys: 2 }, () => 1000);
+    await cache.get('a');
+    await cache.get('b');
+    await cache.get('c');
+    expect(await cache.get('a')).toBe('a');
+    expect(resolve).toHaveBeenCalledTimes(4);
   });
 });
