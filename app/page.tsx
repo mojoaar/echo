@@ -87,8 +87,35 @@ export default async function Page({
 
   const showsOwnIp = !target || !rawTarget;
 
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'echo',
+      url: baseUrl,
+      description: 'See your IP address, location, ISP and more.',
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'echo',
+      url: baseUrl,
+      description: 'What the internet sees when you connect.',
+      applicationCategory: 'DeveloperApplication',
+      operatingSystem: 'Any',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    },
+  ];
+
   return (
     <div className="shell">
+      {jsonLd.map((block, index) => (
+        <script
+          key={index}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(block) }}
+        />
+      ))}
       <header className="topbar">
         <div className="brand">
           <span className="brand-dot" aria-hidden="true" />

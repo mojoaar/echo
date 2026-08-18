@@ -1,8 +1,14 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
 const siteUrl = process.env.APP_URL ?? 'https://echo.johansen.foo';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#0f1117',
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
