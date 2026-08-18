@@ -25,7 +25,10 @@ function ensureLeaflet(): Promise<void> {
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error('leaflet failed to load'));
+    script.onerror = () => {
+      leafletPromise = null;
+      reject(new Error('leaflet failed to load'));
+    };
     document.head.appendChild(script);
   });
   return leafletPromise;
@@ -50,10 +53,14 @@ export function MapTrigger({ lat, lon }: { lat: number; lon: number }) {
 
 export default function MapModal({ lat, lon, onClose }: { lat: number; lon: number; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const [mapError, setMapError] = useState(false);
 
   useEffect(() => {
     let map: { remove: () => void } | null = null;
     let cancelled = false;
+    setMapError(false);
     ensureLeaflet()
       .then(() => {
         if (cancelled || !ref.current || !window.L) return;
@@ -66,12 +73,41 @@ export default function MapModal({ lat, lon, onClose }: { lat: number; lon: numb
         }).addTo(map);
         L.marker([lat, lon]).addTo(map).bindPopup(`${lat.toFixed(4)}, ${lon.toFixed(4)}`).openPopup();
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setMapError(true);
+      });
     return () => {
       cancelled = true;
       if (map) map.remove();
     };
   }, [lat, lon]);
+
+  useEffect(() => {
+    const node = dialogRef.current;
+    if (!node) return;
+    const prevFocus = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const focusables = node.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === node)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    node.addEventListener('keydown', onKeyDown);
+    return () => {
+      node.removeEventListener('keydown', onKeyDown);
+      prevFocus?.focus();
+    };
+  }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -82,13 +118,17 @@ export default function MapModal({ lat, lon, onClose }: { lat: number; lon: numb
   }, [onClose]);
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="map-modal-title" onClick={onClose}>
+      <div ref={dialogRef} className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <span>{lat.toFixed(4)}, {lon.toFixed(4)}</span>
-          <button className="btn" onClick={onClose}>Close</button>
+          <span id="map-modal-title">{lat.toFixed(4)}, {lon.toFixed(4)}</span>
+          <button ref={closeRef} className="btn" onClick={onClose}>Close</button>
         </div>
-        <div ref={ref} className="modal-map" />
+        {mapError ? (
+          <div className="modal-map" style={{ display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>Failed to load map</div>
+        ) : (
+          <div ref={ref} className="modal-map" />
+        )}
         <div className="modal-note">Approximate location based on IP address — city-level precision.</div>
       </div>
     </div>
