@@ -408,8 +408,9 @@ footer a:hover {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(0, 0, 0, 0.55);
   z-index: 50;
   padding: 20px;

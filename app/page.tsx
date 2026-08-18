@@ -112,7 +112,7 @@ export default async function Page({
               <div className="hero-actions">
                 {!info.isPrivate && <CopyButton value={info.ip} label="Copy" />}
                 <CopyButton value={JSON.stringify(info, null, 2)} label="Copy as JSON" />
-                {showsOwnIp && <RefreshButton />}
+                <RefreshButton />
               </div>
             </>
           ) : (
