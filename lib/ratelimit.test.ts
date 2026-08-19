@@ -1,5 +1,21 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createRateLimiter, getRateLimiter, resetRateLimiter } from '@/lib/ratelimit';
+
+const endpointEnvNames = [
+  'RATE_LIMIT_JSON_MAX',
+  'RATE_LIMIT_JSON_WINDOW_MS',
+  'RATE_LIMIT_IP_MAX',
+  'RATE_LIMIT_IP_WINDOW_MS',
+  'RATE_LIMIT_HISTORY_MAX',
+  'RATE_LIMIT_HISTORY_WINDOW_MS',
+  'RATE_LIMIT_WHOIS_MAX',
+  'RATE_LIMIT_WHOIS_WINDOW_MS',
+  'RATE_LIMIT_DNS_MAX',
+  'RATE_LIMIT_DNS_WINDOW_MS',
+  'RATE_LIMIT_STATS_AUTH_MAX',
+  'RATE_LIMIT_STATS_AUTH_WINDOW_MS',
+];
 
 function fakeClock(initial: number) {
   let time = initial;
@@ -62,10 +78,7 @@ describe('getRateLimiter', () => {
     resetRateLimiter();
     delete process.env.RATE_LIMIT_MAX;
     delete process.env.RATE_LIMIT_WINDOW_MS;
-    delete process.env.RATE_LIMIT_JSON_MAX;
-    delete process.env.RATE_LIMIT_JSON_WINDOW_MS;
-    delete process.env.RATE_LIMIT_IP_MAX;
-    delete process.env.RATE_LIMIT_IP_WINDOW_MS;
+    for (const name of endpointEnvNames) delete process.env[name];
   });
 
   it('caches each named limiter independently', () => {
@@ -99,6 +112,13 @@ describe('getRateLimiter', () => {
     expect(first.limit).toBe(1);
     expect(first.retryAfter).toBe(0);
     expect(limiter.allow('key').retryAfter).toBe(5678);
+  });
+
+  it('keeps endpoint-specific Compose variables empty unless configured', () => {
+    const compose = readFileSync(new URL('../docker-compose.yml', import.meta.url), 'utf8');
+    for (const name of endpointEnvNames) {
+      expect(compose).toContain(`${name}: \${${name}:-}`);
+    }
   });
 
   it('rebuilds all named limiters after resetRateLimiter', () => {

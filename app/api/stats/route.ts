@@ -30,7 +30,12 @@ export async function GET(request: Request) {
         withRateHeaders({ 'cache-control': 'no-store' }, rate),
       );
     }
-    return apiError(404, 'not found', 'not_found', { 'cache-control': 'no-store' });
+    return apiError(
+      404,
+      'not found',
+      'not_found',
+      withRateHeaders({ 'cache-control': 'no-store' }, rate),
+    );
   }
   const now = Date.now();
   const body = {

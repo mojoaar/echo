@@ -57,6 +57,8 @@ npm run lint           # typecheck (tsc --noEmit)
 
 The following are set inside the official Docker image and are only needed when running outside it: `PORT`, `HOSTNAME`, `DB_PATH`, `SCHEMA_PATH`, `MMDB_CITY`, `MMDB_ASN`.
 
+Endpoint-specific rate-limit variables are optional. Leave them unset or empty to use the legacy global values; the application resolves each setting as endpoint-specific, then legacy global, then the endpoint default. In `docker-compose.yml`, endpoint-specific variables are intentionally passed through as empty unless explicitly configured.
+
 ## API
 
 ### `GET /api/ip`
