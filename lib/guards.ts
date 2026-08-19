@@ -9,7 +9,6 @@ export interface DnsResponse {
     soa: string[];
   };
 }
-
 export interface RdapResponse {
   handle: string | null;
   name: string | null;
@@ -90,7 +89,6 @@ export function isDnsResponse(value: unknown): value is DnsResponse {
   const records = value.records;
   return ['a', 'aaaa', 'mx', 'ns', 'txt', 'soa'].every((key) => isStringArray(records[key]));
 }
-
 export function isRdapResponse(value: unknown): value is RdapResponse | null {
   if (value === null) return true;
   if (!isRecord(value)) return false;

@@ -106,7 +106,9 @@ Returns WHOIS ownership data for an IP address via [RDAP](https://en.wikipedia.o
 
 ### `GET /api/dns?name=johansen.foo`
 
-Resolves forward DNS records for a hostname, returning `a`, `aaaa`, `mx`, `ns`, `txt`, and `soa` arrays. Same CORS and rate-limit headers; malformed responses are rejected before display.
+Resolves forward DNS records for public fully qualified hostnames only, returning `a`, `aaaa`, `mx`, `ns`, `txt`, and `soa` arrays. Private/reserved A and AAAA answers are removed. Same CORS and rate-limit headers; malformed responses are rejected before display.
+
+Successful DNS responses also include `cache` (`hit` or `miss`), `resolvedAt`, `durationMs`, and `partial`. The resolver uses a six-second overall deadline, two concurrent record-family jobs, a bounded 30-second result cache, and a five-second failure cache. Configure these limits with `DNS_TIMEOUT_MS`, `DNS_MAX_CONCURRENCY`, `DNS_CACHE_TTL_MS`, `DNS_FAILURE_TTL_MS`, and `DNS_CACHE_MAX`. Local names, IP literals, single-label names, trailing-dot names, and `.local`, `.internal`, `.localhost`, `.home.arpa`, `.test`, `.invalid`, and `.example` suffixes are rejected.
 
 ### `GET /api/history`
 

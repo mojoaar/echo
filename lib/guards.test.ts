@@ -64,7 +64,6 @@ describe('runtime response guards', () => {
     expect(isIpInfo({ ...ipInfo, extra: true })).toBe(true);
     expect(isRdapResponse(null)).toBe(true);
   });
-
   it('rejects DNS payloads with missing arrays or wrong scalar types', () => {
     expect(isDnsResponse({ ...dnsResponse, name: 42 })).toBe(false);
     expect(isDnsResponse({ ...dnsResponse, records: { ...dnsResponse.records, a: '192.0.2.1' } })).toBe(

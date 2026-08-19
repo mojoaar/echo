@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import type { DnsRecords } from '@/lib/dns';
+import type { DnsLookupResult, DnsRecords } from '@/lib/dns';
 import { isDnsResponse } from '@/lib/guards';
 
 type Group = { type: string; values: string[] };
@@ -18,12 +18,13 @@ export default function DnsSection() {
   const [value, setValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ name: string; records: DnsRecords } | null>(null);
+  const [result, setResult] = useState<(DnsLookupResult & { name: string }) | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const name = value.trim();
     if (!name) {
+      setResult(null);
       setError('Enter a hostname.');
       return;
     }
@@ -39,11 +40,23 @@ export default function DnsSection() {
         return;
       }
       if (!res.ok) {
-        setError('Enter a valid hostname.');
+        const body = await res.json().catch(() => null) as { code?: string } | null;
+        setError(
+          body?.code === 'rate_limited'
+            ? 'Rate limited. Try again shortly.'
+            : body?.code === 'upstream_timeout'
+              ? 'DNS lookup timed out.'
+              : body?.code === 'upstream_unavailable'
+                ? 'DNS resolver unavailable.'
+                : 'Enter a valid public hostname.',
+        );
         return;
       }
       const body = await res.json();
-      if (!isDnsResponse(body)) {
+      if (
+        !isDnsResponse(body) ||
+        !isDnsLookupMetadata(body)
+      ) {
         setError('Could not resolve DNS records.');
         return;
       }
@@ -64,7 +77,7 @@ export default function DnsSection() {
   return (
     <section className="dns">
       <h2 className="section-title">DNS lookup</h2>
-      <form className="form" role="search" onSubmit={submit}>
+      <form className="form" id="dns-form" role="search" onSubmit={submit}>
         <input
           type="text"
           value={value}
@@ -81,7 +94,12 @@ export default function DnsSection() {
           {loading ? 'Resolving…' : 'Resolve'}
         </button>
       </form>
-      {error && <p className="form-error" role="alert">{error}</p>}
+      {error && (
+        <p className="form-error" role="alert">
+          {error}{' '}
+          <button className="text-button" type="submit" form="dns-form">Retry</button>
+        </p>
+      )}
       {result ? (
         groups.length > 0 ? (
           <div className="card dns-body">
@@ -102,6 +120,30 @@ export default function DnsSection() {
           <p className="dns-empty muted">No records found for {result.name}.</p>
         )
       ) : null}
+      {result && (
+        <div className="dns-meta" aria-live="polite">
+          <span>{result.cache === 'hit' ? 'Cached result' : 'Fresh result'}</span>
+          <span>{new Date(result.resolvedAt).toLocaleString()}</span>
+          <span>{result.durationMs} ms</span>
+        </div>
+      )}
+      {result?.partial && (
+        <p className="dns-warning" role="status">
+          Some record types could not be resolved. <button className="text-button" type="submit" form="dns-form">Retry</button>
+        </p>
+      )}
     </section>
+  );
+}
+
+function isDnsLookupMetadata(value: unknown): value is DnsLookupResult & { name: string } {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    (candidate.cache === 'hit' || candidate.cache === 'miss') &&
+    typeof candidate.resolvedAt === 'string' &&
+    typeof candidate.durationMs === 'number' &&
+    Number.isFinite(candidate.durationMs) &&
+    typeof candidate.partial === 'boolean'
   );
 }
