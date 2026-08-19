@@ -59,4 +59,12 @@ describe('lookup metadata', () => {
 
     expect(metadata).toEqual({});
   });
+
+  it('treats repeated ip query values as invalid lookup input', async () => {
+    const metadata = await generateMetadata({
+      searchParams: Promise.resolve({ ip: ['invalid', '8.8.8.8'] }),
+    });
+
+    expect(metadata).toEqual({});
+  });
 });

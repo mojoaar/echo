@@ -38,6 +38,7 @@ const appVersion = getVersion();
 const defaultSiteUrl = 'https://echo.johansen.foo';
 
 function queryIp(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) return value.join(',');
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 

@@ -156,6 +156,17 @@ test('leaves invalid lookup metadata as the home metadata', async ({ page }) => 
   await expect(page.locator('link[rel="canonical"]')).toHaveCount(0);
 });
 
+test('rejects repeated lookup parameters instead of falling back to the visitor IP', async ({ page }) => {
+  await page.setExtraHTTPHeaders({ 'x-real-ip': '192.168.1.10' });
+  await page.goto('/?ip=invalid&ip=8.8.8.8');
+
+  await expect(page.getByText('"invalid,8.8.8.8" is not a valid IP address.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'You are on a private network' })).toHaveCount(0);
+  await expect(page).toHaveTitle('echo | what the internet sees when you connect');
+  await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+  await expect(page.locator('link[rel="canonical"]')).toHaveCount(0);
+});
+
 test('switches themes and persists the selected theme', async ({ page }) => {
   await page.setExtraHTTPHeaders({ 'x-real-ip': '192.168.1.10' });
   await page.goto('/');
