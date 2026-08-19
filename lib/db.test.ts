@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { initDb, closeDb, insertLookup, listRecent, countLookups } from './db';
+import { initDb, closeDb, insertLookup, countLookups, countSince, topCountryCodes } from './db';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -30,22 +30,21 @@ describe('sqlite lookup log', () => {
     await sleep(5);
   });
 
-  it('lists entries newest first and respects limit', () => {
+  it('counts lookups since a timestamp', async () => {
     insertLookup('1.1.1.1', 'AU');
-    const all = listRecent(10);
-    expect(all).toHaveLength(2);
-    expect(all[0].ip).toBe('1.1.1.1');
-    expect(all[0].iso).toBe('AU');
-    expect(typeof all[0].ts).toBe('number');
-    const one = listRecent(1);
-    expect(one).toHaveLength(1);
-    expect(one[0].ip).toBe('1.1.1.1');
+    insertLookup('9.9.9.9', 'DE');
+    const now = Date.now();
+    await sleep(5);
+    insertLookup('2.2.2.2', 'DE');
+    expect(countSince(now)).toBe(1);
+    expect(countSince(0)).toBe(4);
   });
 
-  it('allows a null iso', () => {
-    insertLookup('192.168.0.1', null);
-    const rows = listRecent(10);
-    expect(rows[0].ip).toBe('192.168.0.1');
-    expect(rows[0].iso).toBeNull();
+  it('aggregates top country codes excluding null iso', () => {
+    const top = topCountryCodes(10);
+    const de = top.find((c) => c.iso === 'DE')?.count ?? 0;
+    expect(de).toBe(2);
+    expect(top.some((c) => c.iso === 'US')).toBe(true);
+    expect(top.every((c) => /^[A-Z]{2}$/.test(c.iso))).toBe(true);
   });
 });

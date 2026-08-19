@@ -308,30 +308,38 @@ code {
   letter-spacing: 0.04em;
 }
 
-.feed-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
+.feed-summary {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 14px;
 }
 
-.feed-row {
+.feed-chips {
+  list-style: none;
   display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.feed-chip {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 9px 12px;
+  gap: 8px;
+  padding: 7px 12px;
   border: 1px solid var(--border);
-  border-bottom: none;
+  border-radius: 999px;
   background: var(--surface);
   font-size: 0.85rem;
 }
 
-.feed-row:first-child {
-  border-radius: 12px 12px 0 0;
+.feed-count {
+  color: var(--muted);
+  font-size: 0.75rem;
 }
 
-.feed-row:last-child {
-  border-bottom: 1px solid var(--border);
-  border-radius: 0 0 12px 12px;
+.feed-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .feed-dot {
@@ -344,17 +352,6 @@ code {
   background: var(--surface-2);
   color: var(--muted);
   font-size: 0.68rem;
-}
-
-.feed-ip {
-  flex: 1;
-  overflow-wrap: anywhere;
-}
-
-.feed-ts {
-  color: var(--muted);
-  font-size: 0.75rem;
-  white-space: nowrap;
 }
 
 .whois {
@@ -383,9 +380,14 @@ code {
 }
 
 .whois-body .feed-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
   border: none;
   border-bottom: 1px solid var(--border);
   border-radius: 0;
+  background: transparent;
 }
 
 .whois-body .feed-row:last-child {

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
-import type { HistoryEntry } from './types';
+import type { CountryCount } from './types';
 
 let db: Database.Database | null = null;
 
@@ -38,10 +38,17 @@ export function insertLookup(ip: string, iso: string | null): { id: number; ts: 
   return { id: Number(result.lastInsertRowid), ts };
 }
 
-export function listRecent(limit = 20): HistoryEntry[] {
+export function countSince(tsMs: number): number {
+  const row = getDb().prepare('SELECT COUNT(*) AS n FROM lookups WHERE ts >= ?').get(tsMs) as { n: number };
+  return row.n;
+}
+
+export function topCountryCodes(limit = 10): CountryCount[] {
   return getDb()
-    .prepare('SELECT ip, iso, ts FROM lookups ORDER BY ts DESC, id DESC LIMIT ?')
-    .all(limit) as HistoryEntry[];
+    .prepare(
+      'SELECT iso, COUNT(*) AS count FROM lookups WHERE iso IS NOT NULL GROUP BY iso ORDER BY count DESC, iso ASC LIMIT ?'
+    )
+    .all(limit) as CountryCount[];
 }
 
 export function countLookups(): number {

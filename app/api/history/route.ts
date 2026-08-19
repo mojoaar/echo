@@ -1,4 +1,6 @@
-import { listRecent } from '@/lib/db';
+import { countLookups, countSince, topCountryCodes } from '@/lib/db';
+import { extractVisitorIp } from '@/lib/ip';
+import { getRateLimiter } from '@/lib/ratelimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,15 +16,22 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const raw = url.searchParams.get('limit');
-  let limit = 20;
-  if (raw) {
-    const parsed = Number.parseInt(raw, 10);
-    if (Number.isFinite(parsed)) {
-      limit = Math.min(Math.max(parsed, 1), 100);
-    }
+  const key = extractVisitorIp(request.headers) ?? 'anonymous';
+  const rate = getRateLimiter().allow(key);
+  if (!rate.allowed) {
+    const headers = { ...corsHeaders, 'retry-after': String(rate.retryAfter) };
+    return Response.json({ error: 'rate limit exceeded' }, { status: 429, headers });
   }
-  const rows = listRecent(limit);
-  return Response.json(rows, { headers: corsHeaders });
+  const now = Date.now();
+  const body = {
+    total: countLookups(),
+    last24h: countSince(now - 86_400_000),
+    topCountries: topCountryCodes(10),
+  };
+  const headers = {
+    ...corsHeaders,
+    'x-ratelimit-limit': String(rate.limit),
+    'x-ratelimit-remaining': String(rate.remaining),
+  };
+  return Response.json(body, { headers });
 }

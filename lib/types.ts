@@ -28,8 +28,13 @@ export interface AsnRecord {
   autonomous_system_organization?: string;
 }
 
-export interface HistoryEntry {
-  ip: string;
-  iso: string | null;
-  ts: number;
+export interface CountryCount {
+  iso: string;
+  count: number;
+}
+
+export interface FeedStats {
+  total: number;
+  last24h: number;
+  topCountries: CountryCount[];
 }

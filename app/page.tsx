@@ -2,13 +2,13 @@ import { headers } from 'next/headers';
 import { extractVisitorIp, normalizeIp } from '@/lib/ip';
 import { isValidIp } from '@/lib/validate';
 import { lookupInfo } from '@/lib/geo';
-import { insertLookup, listRecent } from '@/lib/db';
-import type { HistoryEntry, IpInfo } from '@/lib/types';
+import { insertLookup, countLookups, countSince, topCountryCodes } from '@/lib/db';
+import type { IpInfo } from '@/lib/types';
 import CopyButton from '@/components/ui/CopyButton';
 import RefreshButton from '@/components/ui/RefreshButton';
 import LookupForm from '@/components/ui/LookupForm';
 import { MapTrigger } from '@/components/ui/MapModal';
-import RecentFeed from '@/components/ui/RecentFeed';
+import FeedStats from '@/components/ui/FeedStats';
 import WhoisSection from '@/components/ui/WhoisSection';
 import DnsSection from '@/components/ui/DnsSection';
 import ThemeToggle from '@/components/ui/ThemeToggle';
@@ -37,15 +37,6 @@ function InfoCard({ label, value, children }: InfoCardProps) {
       {children}
     </div>
   );
-}
-
-function dedupeConsecutive(rows: HistoryEntry[]): HistoryEntry[] {
-  const out: HistoryEntry[] = [];
-  for (const row of rows) {
-    const last = out[out.length - 1];
-    if (!last || last.ip !== row.ip || last.iso !== row.iso) out.push(row);
-  }
-  return out;
 }
 
 export default async function Page({
@@ -82,9 +73,11 @@ export default async function Page({
     } catch {}
   }
 
-  let recent: HistoryEntry[] = [];
+  const stats = { total: 0, last24h: 0, topCountries: [] as { iso: string; count: number }[] };
   try {
-    recent = dedupeConsecutive(listRecent(12));
+    stats.total = countLookups();
+    stats.last24h = countSince(Date.now() - 86_400_000);
+    stats.topCountries = topCountryCodes(12);
   } catch {}
 
   const showsOwnIp = !target || !rawTarget;
@@ -138,8 +131,12 @@ export default async function Page({
                 <TypeOnText text={info.ip} />
               )}
               <div className="hero-actions">
-                {!info.isPrivate && <CopyButton value={info.ip} label="Copy" />}
-                <CopyButton value={JSON.stringify(info, null, 2)} label="Copy as JSON" />
+                {!info.isPrivate && (
+                  <>
+                    <CopyButton value={info.ip} label="Copy" />
+                    <CopyButton value={JSON.stringify(info, null, 2)} label="Copy as JSON" />
+                  </>
+                )}
                 <RefreshButton />
               </div>
             </>
@@ -191,7 +188,7 @@ export default async function Page({
 
         <DnsSection />
 
-        <RecentFeed entries={recent} />
+        <FeedStats total={stats.total} last24h={stats.last24h} topCountries={stats.topCountries} />
       </main>
 
       <footer>
