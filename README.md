@@ -52,6 +52,8 @@ npm run lint           # typecheck (tsc --noEmit)
 | `RATE_LIMIT_DNS_MAX` / `RATE_LIMIT_DNS_WINDOW_MS` | `10` / `60000` | `/api/dns` max and window |
 | `RATE_LIMIT_STATS_AUTH_MAX` / `RATE_LIMIT_STATS_AUTH_WINDOW_MS` | `5` / `60000` | Failed `/api/stats` authentication max and window |
 | `STATS_TOKEN` | _(unset)_ | Optional secret token protecting `/api/stats`; endpoint is disabled when unset |
+| `HEALTH_TOKEN` | _(unset)_ | Optional secret token for authenticated `/api/health` readiness |
+| `LOOKUP_RETENTION_DAYS` | `90` | Private lookup retention period in days |
 | `UMAMI_SCRIPT_URL` | _(unset)_ | Umami script URL; when set together with `UMAMI_WEBSITE_ID`, the analytics script is injected |
 | `UMAMI_WEBSITE_ID` | _(unset)_ | Umami website id |
 
@@ -139,6 +141,12 @@ STATS_TOKEN=9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1908
 ```
 
 Then restart with `docker compose up -d` and query as shown above. The token is only ever sent outbound from your host; it is never exposed to visitors.
+
+### `GET /api/health`
+
+Public liveness returns only `{ "status": "ok" }` from `/api/health` and does not write lookup rows or consume lookup rate limits. When `HEALTH_TOKEN` is configured, request `/api/health?readiness=1` with `Authorization: Bearer <token>` to receive restricted readiness details for the database, bundled MMDB files, application version, uptime, and retention configuration. Missing, invalid, or unset readiness credentials return `404`.
+
+Lookup IPs are retained privately for `LOOKUP_RETENTION_DAYS` days. Public history exposes aggregates only; raw IP statistics remain restricted to `/api/stats`.
 
 ## Deployment
 

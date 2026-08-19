@@ -17,6 +17,20 @@ import { getVersion } from '@/lib/version';
 
 export const dynamic = 'force-dynamic';
 
+function logOperationalEvent(event: {
+  category: string;
+  endpoint: string;
+  status: string;
+  durationMs: number;
+}): void {
+  console.error(JSON.stringify({
+    category: event.category,
+    endpoint: event.endpoint,
+    status: event.status,
+    durationMs: Math.max(0, Math.round(event.durationMs)),
+  }));
+}
+
 const appVersion = getVersion();
 
 type InfoCardProps = {
@@ -68,9 +82,12 @@ export default async function Page({
   let info: IpInfo | null = null;
   if (target) {
     info = await lookupInfo(target, { hostname: true });
+    const startedAt = Date.now();
     try {
       insertLookup(info.ip, info.country);
-    } catch {}
+    } catch {
+      logOperationalEvent({ category: 'database_write', endpoint: 'page', status: 'error', durationMs: Date.now() - startedAt });
+    }
   }
 
   const stats = { total: 0, last24h: 0, topCountries: [] as { iso: string; count: number }[] };
@@ -78,7 +95,9 @@ export default async function Page({
     stats.total = countLookups();
     stats.last24h = countSince(Date.now() - 86_400_000);
     stats.topCountries = topCountryCodes(12);
-  } catch {}
+  } catch {
+    logOperationalEvent({ category: 'database_read', endpoint: 'page', status: 'error', durationMs: 0 });
+  }
 
   const showsOwnIp = !target || !rawTarget;
 

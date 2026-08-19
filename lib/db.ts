@@ -4,31 +4,78 @@ import Database from 'better-sqlite3';
 import type { CountryCount } from './types';
 
 let db: Database.Database | null = null;
+let lastPrunedAt = 0;
+
+const DAY_MS = 86_400_000;
+const PRUNE_INTERVAL_MS = 3_600_000;
 
 function schemaSql(): string {
   const schemaPath = process.env.SCHEMA_PATH ?? join(process.cwd(), 'schema.sql');
   return readFileSync(schemaPath, 'utf-8');
 }
 
+function configuredRetentionDays(): number {
+  const value = Number.parseInt(process.env.LOOKUP_RETENTION_DAYS ?? '', 10);
+  return Number.isInteger(value) && value > 0 ? value : 90;
+}
+
+function pruneWithDatabase(instance: Database.Database, nowMs: number): number {
+  const cutoff = nowMs - configuredRetentionDays() * DAY_MS;
+  const result = instance.prepare('DELETE FROM lookups WHERE ts < ?').run(cutoff);
+  lastPrunedAt = nowMs;
+  return result.changes;
+}
+
+function pruneIfDue(instance: Database.Database, nowMs: number): void {
+  if (nowMs - lastPrunedAt >= PRUNE_INTERVAL_MS) pruneWithDatabase(instance, nowMs);
+}
+
 export function initDb(path = process.env.DB_PATH ?? 'echo.db'): Database.Database {
-  if (db) return db;
+  if (db) {
+    pruneIfDue(db, Date.now());
+    return db;
+  }
   const instance = new Database(path);
   instance.pragma('journal_mode = WAL');
   instance.exec(schemaSql());
   db = instance;
+  pruneWithDatabase(instance, Date.now());
   return instance;
 }
 
 export function getDb(): Database.Database {
-  return db ?? initDb();
+  if (!db) return initDb();
+  pruneIfDue(db, Date.now());
+  return db;
 }
 
 export function closeDb(): void {
   if (db) {
     try {
       db.close();
-    } catch {}
+    } catch {
+      console.error(JSON.stringify({ category: 'database_close', endpoint: 'database', status: 'error', durationMs: 0 }));
+    }
     db = null;
+    lastPrunedAt = 0;
+  }
+}
+
+export function pruneOldLookups(nowMs = Date.now()): number {
+  return pruneWithDatabase(getDb(), nowMs);
+}
+
+export function getRetentionDays(): number {
+  return configuredRetentionDays();
+}
+
+export function isDbReady(): boolean {
+  if (!db?.open) return false;
+  try {
+    db.prepare('SELECT 1').get();
+    return true;
+  } catch {
+    return false;
   }
 }
 
