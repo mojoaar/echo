@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Removed unused npm and npx tooling from the production image so container vulnerability scanning covers only runtime dependencies
+
 ## [1.4.2] - 2026-08-19
 
 ## [1.4.1] - 2026-08-19
