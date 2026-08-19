@@ -10,6 +10,7 @@ import LookupForm from '@/components/ui/LookupForm';
 import { MapTrigger } from '@/components/ui/MapModal';
 import RecentFeed from '@/components/ui/RecentFeed';
 import WhoisSection from '@/components/ui/WhoisSection';
+import DnsSection from '@/components/ui/DnsSection';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import TypeOnText from '@/components/ui/TypeOnText';
 import { getVersion } from '@/lib/version';
@@ -187,6 +188,8 @@ export default async function Page({
         </section>
 
         {info && !info.isPrivate ? <WhoisSection ip={info.ip} /> : null}
+
+        <DnsSection />
 
         <RecentFeed entries={recent} />
       </main>

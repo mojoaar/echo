@@ -406,6 +406,54 @@ code {
   margin: 0;
 }
 
+.dns {
+  margin-top: 40px;
+}
+
+.dns-body {
+  margin-top: 14px;
+  padding: 6px 0;
+}
+
+.dns-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dns-group:last-child {
+  border-bottom: none;
+}
+
+.dns-type {
+  width: 60px;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  padding-top: 2px;
+}
+
+.dns-values {
+  list-style: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dns-value {
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+
+.dns-empty {
+  font-size: 0.85rem;
+  margin-top: 12px;
+}
+
 footer {
   margin-top: 48px;
   text-align: center;
