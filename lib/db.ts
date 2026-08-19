@@ -55,3 +55,17 @@ export function countLookups(): number {
   const row = getDb().prepare('SELECT COUNT(*) AS n FROM lookups').get() as { n: number };
   return row.n;
 }
+
+export function topIps(limit = 10): { ip: string; count: number }[] {
+  return getDb()
+    .prepare('SELECT ip, COUNT(*) AS count FROM lookups GROUP BY ip ORDER BY count DESC, ip ASC LIMIT ?')
+    .all(limit) as { ip: string; count: number }[];
+}
+
+export function dailyCounts(sinceTs: number, days = 7): { day: string; count: number }[] {
+  return getDb()
+    .prepare(
+      "SELECT strftime('%Y-%m-%d', ts / 1000, 'unixepoch') AS day, COUNT(*) AS count FROM lookups WHERE ts >= ? GROUP BY day ORDER BY day ASC LIMIT ?"
+    )
+    .all(sinceTs, days) as { day: string; count: number }[];
+}
