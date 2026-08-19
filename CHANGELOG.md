@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- CI version-sensitive health tests, consolidated WHOIS browser assertions, and mobile Safari theme keyboard coverage
+- Container vulnerability scanning now uses the current Trivy action release
+
+### Changed
+
+- Docker Compose now exposes the recommended endpoint-specific rate-limit defaults and corrected history window configuration
+
 ## [1.4.0] - 2026-08-19
 
 ### Added

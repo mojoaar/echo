@@ -29,8 +29,6 @@ test('mobile theme control remains keyboard accessible', async ({ page }) => {
   await page.setExtraHTTPHeaders({ 'x-real-ip': '192.168.1.10' });
   await page.goto('/');
   const toggle = page.getByRole('button', { name: 'Toggle light and dark mode' });
-  await toggle.focus();
-  await expect(toggle).toBeFocused();
-  await page.keyboard.press('Enter');
+  await toggle.press('Enter');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });

@@ -70,5 +70,5 @@ test('WHOIS failure exposes retry state before a successful retry', async ({ pag
   await page.getByRole('button', { name: 'Load WHOIS data' }).click();
   await expect(page.locator('p[role="alert"]').filter({ hasText: 'Could not load WHOIS data.' })).toBeVisible();
   await page.getByRole('button', { name: 'Load WHOIS data' }).click();
-  await expect(page.getByText('IP registration data is unavailable.')).toBeVisible();
+  await expect(page.getByText('Registration data is unavailable. Retry to check again.')).toBeVisible();
 });

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { closeDb, initDb } from '@/lib/db';
 import * as db from '@/lib/db';
+import { getVersion } from '@/lib/version';
 import { GET } from './route';
 
 describe('GET /api/health', () => {
@@ -61,7 +62,7 @@ describe('GET /api/health', () => {
       status: 'ok',
       database: { ready: true },
       mmdb: { ready: true },
-      version: '1.3.0',
+      version: getVersion(),
       uptimeSeconds: expect.any(Number),
       retentionDays: 7,
     });
