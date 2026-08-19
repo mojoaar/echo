@@ -134,6 +134,29 @@ describe('sqlite lookup log', () => {
     ]);
   });
 
+  it('uses the supplied timestamp without scheduled pruning first', () => {
+    const currentTime = Date.now();
+    process.env.LOOKUP_RETENTION_DAYS = '1';
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(currentTime - 3_600_001);
+    try {
+      closeDb();
+      const instance = initDb(dbPath);
+
+      const suppliedNow = currentTime - 2 * 86_400_000;
+      const cutoff = suppliedNow - 86_400_000;
+      instance.prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run('203.0.113.10', 'US', cutoff);
+      instance.prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run('203.0.113.11', 'US', cutoff - 1);
+
+      clock.mockReturnValue(currentTime);
+      expect(pruneOldLookups(suppliedNow)).toBe(1);
+      expect(instance.prepare('SELECT ip FROM lookups WHERE ip IN (?, ?) ORDER BY ip').all('203.0.113.10', '203.0.113.11')).toEqual([
+        { ip: '203.0.113.10' },
+      ]);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it('does not prune again until the one-hour interval elapses', () => {
     const currentTime = Date.now();
     process.env.LOOKUP_RETENTION_DAYS = '1';

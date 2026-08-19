@@ -62,7 +62,7 @@ export function closeDb(): void {
 }
 
 export function pruneOldLookups(nowMs = Date.now()): number {
-  return pruneWithDatabase(getDb(), nowMs);
+  return pruneWithDatabase(db ?? initDb(), nowMs);
 }
 
 export function getRetentionDays(): number {
