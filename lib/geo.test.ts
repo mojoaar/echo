@@ -162,6 +162,47 @@ describe('createHostnameCache', () => {
     await expect(second).resolves.toBe('ptr');
   });
 
+  it('does not evict a pending lookup under key pressure', async () => {
+    const releases = new Map<string, (value: string) => void>();
+    const resolve = vi.fn((key: string) => new Promise<string>((release) => {
+      releases.set(key, release);
+    }));
+    const cache = createHostnameCache(resolve, { ttlMs: 60_000, maxKeys: 1 }, () => 1000);
+    const first = cache.get('a');
+    const second = cache.get('b');
+    releases.get('b')?.('b');
+    await expect(second).resolves.toBe('b');
+
+    const retryFirst = cache.get('a');
+    expect(retryFirst).toBe(first);
+    expect(resolve).toHaveBeenCalledTimes(2);
+    releases.get('a')?.('a');
+    await expect(first).resolves.toBe('a');
+  });
+
+  it('removes rejected lookups so the next call retries', async () => {
+    const resolve = vi.fn()
+      .mockRejectedValueOnce(new Error('temporary failure'))
+      .mockResolvedValueOnce('ptr');
+    const cache = createHostnameCache(resolve, { ttlMs: 60_000, maxKeys: 10 }, () => 1000);
+
+    await expect(cache.get('rejected')).rejects.toThrow('temporary failure');
+    await expect(cache.get('rejected')).resolves.toBe('ptr');
+    expect(resolve).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps null failures only for the short failure ttl', async () => {
+    let clock = 1000;
+    const resolve = vi.fn(async () => null);
+    const cache = createHostnameCache(resolve, { ttlMs: 60_000, failureTtlMs: 100, maxKeys: 10 }, () => clock);
+
+    await expect(cache.get('missing')).resolves.toBeNull();
+    await expect(cache.get('missing')).resolves.toBeNull();
+    clock = 1101;
+    await expect(cache.get('missing')).resolves.toBeNull();
+    expect(resolve).toHaveBeenCalledTimes(2);
+  });
+
   it('resolves again after the ttl elapses', async () => {
     let clock = 0;
     const resolve = vi.fn(async () => 'x');

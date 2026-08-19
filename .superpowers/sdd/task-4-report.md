@@ -36,3 +36,19 @@ STATUS: DONE_WITH_CONCERNS
 - Vitest emits the pre-existing Vite `configLoader: 'native'` ESM warning; it does not affect test results and was not changed.
 - The API test uses a partial `lib/geo` mock to represent an unavailable MMDB ASN reader; full ASN route integration depends on the deployment MMDB fixture.
 - The UI uses existing CSS classes plus a new semantic subtitle class without adding a stylesheet rule; browser defaults provide readable headings, but a later UI pass could align that heading with the site's design tokens.
+
+## Reviewer Fixes
+
+- `lib/geo.ts`: separated in-flight promises from settled cache entries so concurrent pressure cannot evict pending work or start duplicate same-key requests; rejected requests are removed and settled entries remain bounded by `maxKeys`.
+- `lib/rdap.ts`: classify successful empty ASN objects as unavailable (`null`) and preserve the short failure TTL for IP and ASN cache users.
+- `lib/guards.ts`: require ASN numeric fields to be non-negative safe integers or `null`.
+- `app/api/whois/route.ts`: combined the RDAP imports.
+- Added focused tests for cache pressure, PTR rejection cleanup and failure TTL, concurrent ASN deduplication, empty ASN responses, and invalid ASN numeric fields.
+
+## Fix Evidence
+
+- RED: `npx vitest run lib/rdap.test.ts app/api/whois/route.test.ts lib/geo.test.ts` failed with 4 expected regressions before implementation: pending pressure duplicate work, empty ASN data classification, and missing failure-TTL retries.
+- Focused GREEN: `npx vitest run lib/rdap.test.ts app/api/whois/route.test.ts lib/geo.test.ts` passed 41 tests across 3 files.
+- Lint: `npm run lint` passed (`tsc --noEmit`).
+- Full suite: `npm test` passed 148 tests across 17 files.
+- `git diff --check` passed.

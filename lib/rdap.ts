@@ -118,6 +118,14 @@ export function parseRdapAsn(data: unknown): RdapAsnInfo | null {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
   const rec = data as AnyRecord;
   const entities = Array.isArray(rec.entities) ? (rec.entities as unknown[]) : [];
+  const hasRegistrationData =
+    typeof rec.handle === 'string' ||
+    typeof rec.name === 'string' ||
+    autnum(rec.startAutnum) !== null ||
+    autnum(rec.endAutnum) !== null ||
+    typeof rec.country === 'string' ||
+    entities.length > 0;
+  if (!hasRegistrationData) return null;
   return {
     handle: str(rec.handle),
     name: str(rec.name),
@@ -174,13 +182,13 @@ export async function queryRdapAsn(
 const cachedRdap: HostnameCache<RdapInfo | null> = createHostnameCache<RdapInfo | null>(
   queryRdap,
   { ttlMs: RDAP_TTL_MS, failureTtlMs: RDAP_FAILURE_TTL_MS, maxKeys: RDAP_MAX_KEYS },
-  Date.now,
+  () => Date.now(),
 );
 
 const cachedRdapAsn: HostnameCache<RdapAsnInfo | null> = createHostnameCache<RdapAsnInfo | null>(
   (key) => queryRdapAsn(Number(key)),
   { ttlMs: RDAP_TTL_MS, failureTtlMs: RDAP_FAILURE_TTL_MS, maxKeys: RDAP_MAX_KEYS },
-  Date.now,
+  () => Date.now(),
 );
 
 export async function fetchRdap(ip: string): Promise<RdapInfo | null> {

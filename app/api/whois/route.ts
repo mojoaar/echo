@@ -1,7 +1,6 @@
 import { extractVisitorIp, normalizeIp } from '@/lib/ip';
 import { isValidIp } from '@/lib/validate';
-import { fetchRdap } from '@/lib/rdap';
-import { fetchRdapAsn } from '@/lib/rdap';
+import { fetchRdap, fetchRdapAsn } from '@/lib/rdap';
 import { createReaders } from '@/lib/geo';
 import type { AsnRecord } from '@/lib/types';
 import { getRateLimiter } from '@/lib/ratelimit';

@@ -91,6 +91,15 @@ describe('runtime response guards', () => {
     expect(isRdapResponse({ ...rdapResponse, asn: { ...rdapResponse.asn, abuse: 'abuse@example.com' } })).toBe(false);
   });
 
+  it('rejects ASN ranges that are negative, fractional, or unsafe integers', () => {
+    expect(isRdapResponse({ ...rdapResponse, asn: { ...rdapResponse.asn, startAutnum: -1 } })).toBe(false);
+    expect(isRdapResponse({ ...rdapResponse, asn: { ...rdapResponse.asn, startAutnum: 1.5 } })).toBe(false);
+    expect(isRdapResponse({
+      ...rdapResponse,
+      asn: { ...rdapResponse.asn, endAutnum: Number.MAX_SAFE_INTEGER + 1 },
+    })).toBe(false);
+  });
+
   it('rejects stats payloads with missing arrays or wrong scalar types', () => {
     expect(isStatsResponse({ ...statsResponse, total: '12' })).toBe(false);
     expect(isStatsResponse({ ...statsResponse, topIps: undefined })).toBe(false);

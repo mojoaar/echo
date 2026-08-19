@@ -78,6 +78,10 @@ function isNullableNumber(value: unknown): value is number | null {
   return value === null || (typeof value === 'number' && Number.isFinite(value));
 }
 
+function isNullableAsnNumber(value: unknown): value is number | null {
+  return value === null || (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0);
+}
+
 function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
@@ -122,8 +126,8 @@ function isRdapAsnResponse(value: unknown): value is RdapAsnResponse {
   return (
     isNullableString(value.handle) &&
     isNullableString(value.name) &&
-    isNullableNumber(value.startAutnum) &&
-    isNullableNumber(value.endAutnum) &&
+    isNullableAsnNumber(value.startAutnum) &&
+    isNullableAsnNumber(value.endAutnum) &&
     isNullableString(value.country) &&
     isNullableString(value.organization) &&
     isAbuse(value.abuse)

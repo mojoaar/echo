@@ -143,25 +143,30 @@ export function createHostnameCache<T>(
   now: () => number = Date.now,
 ): HostnameCache<T> {
   const cache = new Map<string, CacheEntry<T>>();
+  const pending = new Map<string, Promise<T>>();
   return {
     get(key: string): Promise<T> {
       const t = now();
+      const inFlight = pending.get(key);
+      if (inFlight) return inFlight;
       const hit = cache.get(key);
-      if (hit?.pending) return hit.pending;
       if (hit && hit.expires > t) return Promise.resolve(hit.value as T);
-      const pending = resolve(key).then((value) => {
-        if (cache.size >= maxKeys) {
+      const request = resolve(key).then((value) => {
+        pending.delete(key);
+        if (cache.has(key)) cache.delete(key);
+        while (cache.size >= maxKeys) {
           const oldestKey = cache.keys().next().value;
-          if (oldestKey) cache.delete(oldestKey);
+          if (oldestKey === undefined) break;
+          cache.delete(oldestKey);
         }
         cache.set(key, { value, expires: now() + (value === null ? failureTtlMs : ttlMs) });
         return value;
       }).catch((error: unknown) => {
-        if (cache.get(key)?.pending === pending) cache.delete(key);
+        if (pending.get(key) === request) pending.delete(key);
         throw error;
       });
-      cache.set(key, { expires: 0, pending });
-      return pending;
+      pending.set(key, request);
+      return request;
     },
   };
 }

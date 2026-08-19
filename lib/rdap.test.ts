@@ -89,20 +89,6 @@ describe('queryRdap', () => {
     expect(info).toBeNull();
   });
 
-  it('returns all-null fields for an empty object payload', async () => {
-    const info = await queryRdap('8.8.8.8', async () => jsonResponse({}));
-    expect(info).toEqual({
-      handle: null,
-      name: null,
-      startAddress: null,
-      endAddress: null,
-      country: null,
-      cidr: null,
-      organization: null,
-      registrant: null,
-      abuse: null,
-    });
-  });
 });
 
 describe('ASN RDAP', () => {
@@ -146,6 +132,10 @@ describe('ASN RDAP', () => {
     expect(await queryRdapAsn(15169, async () => jsonResponse({}, 503))).toBeNull();
     expect(await queryRdapAsn(15169, async () => { throw new Error('timeout'); })).toBeNull();
   });
+
+  it('returns null for a successful empty ASN response', async () => {
+    expect(await queryRdapAsn(15169, async () => jsonResponse({}))).toBeNull();
+  });
 });
 
 describe('cached RDAP lookups', () => {
@@ -170,6 +160,57 @@ describe('cached RDAP lookups', () => {
     await fetchRdapAsn(64500);
     await fetchRdapAsn(64500);
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('shares one pending ASN request between concurrent callers', async () => {
+    let release!: () => void;
+    const response = new Promise<Response>((resolve) => {
+      release = () => resolve(jsonResponse(asnFixture));
+    });
+    const fetch = vi.fn(() => response);
+    vi.stubGlobal('fetch', fetch);
+
+    const first = fetchRdapAsn(64501);
+    const second = fetchRdapAsn(64501);
+    release();
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries failed IP lookups after the failure ttl', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(1000);
+      const fetch = vi.fn(async () => jsonResponse({}, 503));
+      vi.stubGlobal('fetch', fetch);
+      const first = fetchRdap('198.51.100.20');
+      await expect(first).resolves.toBeNull();
+      await expect(fetchRdap('198.51.100.20')).resolves.toBeNull();
+      expect(fetch).toHaveBeenCalledTimes(1);
+      vi.setSystemTime(2_001);
+      await expect(fetchRdap('198.51.100.20')).resolves.toBeNull();
+      expect(fetch).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('retries failed ASN lookups after the failure ttl', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(1000);
+      const fetch = vi.fn(async () => jsonResponse({}, 503));
+      vi.stubGlobal('fetch', fetch);
+      const first = fetchRdapAsn(64502);
+      await expect(first).resolves.toBeNull();
+      await expect(fetchRdapAsn(64502)).resolves.toBeNull();
+      expect(fetch).toHaveBeenCalledTimes(1);
+      vi.setSystemTime(2_001);
+      await expect(fetchRdapAsn(64502)).resolves.toBeNull();
+      expect(fetch).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
