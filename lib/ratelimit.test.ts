@@ -83,12 +83,14 @@ describe('getRateLimiter', () => {
 
   it('caches each named limiter independently', () => {
     resetRateLimiter();
+    process.env.RATE_LIMIT_JSON_MAX = '1';
     const json = getRateLimiter('json');
     const ip = getRateLimiter('ip');
     expect(json).toBe(getRateLimiter('json'));
     expect(ip).toBe(getRateLimiter('ip'));
     expect(json).not.toBe(ip);
     expect(json.allow('same-key').allowed).toBe(true);
+    expect(json.allow('same-key').allowed).toBe(false);
     expect(ip.allow('same-key').allowed).toBe(true);
   });
 
@@ -116,6 +118,8 @@ describe('getRateLimiter', () => {
 
   it('keeps endpoint-specific Compose variables empty unless configured', () => {
     const compose = readFileSync(new URL('../docker-compose.yml', import.meta.url), 'utf8');
+    expect(compose).toContain('RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-}');
+    expect(compose).toContain('RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-}');
     for (const name of endpointEnvNames) {
       expect(compose).toContain(`${name}: \${${name}:-}`);
     }

@@ -69,3 +69,30 @@ Status: FIXED
 ### Fix Concerns
 
 - Vitest continues to emit the pre-existing Vite `configLoader: 'native'` deprecation warning; it does not affect test or typecheck results.
+
+## Remaining Reviewer Fixes
+
+Status: FIXED
+
+### Findings Addressed
+
+1. Changed `RATE_LIMIT_MAX` and `RATE_LIMIT_WINDOW_MS` in `docker-compose.yml` to `${...:-}` interpolation. When unset, Compose now passes empty values, allowing the application to resolve endpoint-specific settings, then legacy global settings, then endpoint defaults. Explicit legacy global values still pass through unchanged. Endpoint-specific variables remain empty when unset.
+2. Strengthened the named limiter isolation test by configuring `RATE_LIMIT_JSON_MAX=1`, consuming the JSON limiter for a key, and asserting that the IP limiter still allows its first request. Existing limiter identity and cache assertions remain in place.
+
+### TDD Evidence
+
+- RED command: `npx vitest run lib/ratelimit.test.ts`
+- RED result: 1 expected failure in `keeps endpoint-specific Compose variables empty unless configured`; the new JSON/IP isolation assertions passed. The failure showed the legacy Compose interpolation still used `:-30` and `:-60000`.
+- GREEN command: `npx vitest run lib/ratelimit.test.ts app/api/stats/route.test.ts app/api/json/route.test.ts app/api/ip/route.test.ts app/api/history/route.test.ts app/api/whois/route.test.ts app/api/dns/route.test.ts`
+- GREEN result: 7 test files passed, 38 tests passed.
+
+### Verification
+
+- Covering tests: 7 test files passed, 38 tests passed.
+- `npm run lint`: passed (`tsc --noEmit` exited 0).
+- `npm test`: 16 test files passed, 114 tests passed.
+- `git diff --check`: passed before commit.
+
+### Fix Concerns
+
+- Vitest continues to emit the pre-existing Vite `configLoader: 'native'` deprecation warning; it does not affect test or typecheck results.
