@@ -209,7 +209,7 @@ export default async function Page({
           </a>{' '}
           (
           <a
-            href={`https://github.com/mojoaar/echo/releases/tag/v${appVersion}`}
+            href="https://github.com/mojoaar/echo"
             target="_blank"
             rel="noreferrer"
           >

@@ -40,6 +40,8 @@ npm run lint           # typecheck (tsc --noEmit)
 | Variable | Default | Description |
 | --- | --- | --- |
 | `APP_URL` | `https://echo.johansen.foo` | Public origin used in metadata and footer curl examples |
+| `ECHO_TAG` | `latest` | GHCR image tag to pull (e.g. `v1.2.0`) |
+| `TZ` | `Europe/Copenhagen` | Container timezone |
 | `RATE_LIMIT_MAX` | `30` | Max `/api/json` requests per visitor IP per window |
 | `RATE_LIMIT_WINDOW_MS` | `60000` | Rate-limit window length in milliseconds |
 | `UMAMI_SCRIPT_URL` | _(unset)_ | Umami script URL; when set together with `UMAMI_WEBSITE_ID`, the analytics script is injected |
@@ -117,6 +119,8 @@ The default timezone is `Europe/Copenhagen`; set `TZ` to change it (for example 
 
 The app trusts `x-real-ip` first, then `x-forwarded-for`. The reverse proxy must overwrite these headers with the verified client address.
 
+When you access the site from inside the same network it's hosted on, NAT-loopback rewrites your source to the gateway's private IP, so the site shows "You are on a private network" — that's expected. Visit from outside your LAN (e.g. mobile data) to see your public WAN IP.
+
 ### Nginx Proxy Manager
 
 If echo runs behind Nginx Proxy Manager, the proxy headers are set automatically — no manual configuration is needed. Every NPM 2.x Proxy Host generates a location block that sets:
@@ -159,9 +163,7 @@ npm run release:minor   # 1.0.0 -> 1.1.0
 npm run release:major   # 1.0.0 -> 2.0.0
 ```
 
-Each release bumps the version, moves the `## [Unreleased]` entries into a dated changelog section, commits, and creates a `vX.Y.Z` git tag. The release command refuses to run on a dirty working tree.
-
-Once a remote is added, changelog version-link footers can be appended to the generated sections.
+Each release bumps the version, moves the `## [Unreleased]` entries into a dated changelog section, commits, and creates a `vX.Y.Z` git tag. The release command refuses to run on a dirty working tree. Pushing that tag triggers CI to build and publish the image to GitHub Container Registry.
 
 ## Data
 

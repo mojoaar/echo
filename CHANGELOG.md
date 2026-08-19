@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.2.0] - 2026-08-18
 
+### Added
+
+- Robots and sitemap routes, theme color, and structured data for search engines
+- PWA support: web manifest, installable metadata, and a service worker for static assets
+- Larger tap targets for touch devices
+- Nginx Proxy Manager header configuration documented in the README
+
 ## [1.1.0] - 2026-08-18
 
 ### Added
@@ -16,10 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security response headers and a Content-Security-Policy
 - TTL cache for hostname lookups and MMDB preload at boot
 - Coverage tooling via `npm run coverage`
-- Robots and sitemap routes, theme color, and structured data for search engines
-- PWA support: web manifest, installable metadata, and a service worker for static assets
-- Larger tap targets for touch devices
-- Nginx Proxy Manager header configuration documented in the README
 
 ### Fixed
 
