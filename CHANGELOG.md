@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The public lookup feed and `/api/history` now return aggregates (totals and top countries) instead of raw visitor IPs, for privacy
 - Per-visitor rate limiting now applies to all public API endpoints
+- Copy and copy-as-JSON buttons are hidden together on private networks
 
 ## [1.2.0] - 2026-08-18
 
