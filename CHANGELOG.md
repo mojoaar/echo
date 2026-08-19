@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Independent IP and ASN registration presentation, including richer RDAP ASN fields and honest unavailable states
+- On-demand browser IPv4/IPv6 connectivity diagnostics with separate public probe configuration
+- Share links in the canonical `/?ip=` format with lookup-specific noindex metadata and main-site canonical URLs
+- Public liveness and authenticated readiness reporting through `/api/health`
+
+### Changed
+
+- DNS lookups now enforce public-only policy and expose bounded cache, timing, and partial-result metadata
+- Lookup retention, aggregate public history, endpoint budgets, stable error codes, and HTTP rate headers are documented as explicit contracts
+- CI and browser verification gates now cover coverage thresholds, CSP, supply chain, container, and deterministic browser behavior
+
+### Security
+
+- Documented CSP and COOP/CORP responsibilities, proxy header trust, LAN firewall boundaries, and proxy-owned HSTS
+- Documented the query-string stats-token tradeoff and recommended bearer-header authentication
+
 ### Fixed
 
 - Map marker now renders as a CSS pin so the content security policy does not block it

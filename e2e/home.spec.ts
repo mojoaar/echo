@@ -37,6 +37,36 @@ async function stubOptionalLookups(page: Page) {
   });
 }
 
+async function stubWhoisWithAsn(page: Page) {
+  await page.route('**/api/whois**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ip: {
+          handle: 'NET-8-8-8-0-1',
+          name: 'LVLT-GOGL-8-8-8',
+          startAddress: '8.8.8.0',
+          endAddress: '8.8.8.255',
+          country: 'US',
+          cidr: '8.8.8.0/24',
+          organization: 'Google LLC',
+          registrant: 'Google LLC',
+          abuse: null,
+        },
+        asn: {
+          handle: 'AS15169',
+          name: 'GOOGLE',
+          startAutnum: 15169,
+          endAutnum: 15169,
+          country: 'US',
+          organization: 'Google Network',
+          abuse: null,
+        },
+      }),
+    });
+  });
+}
+
 async function stubLeaflet(page: Page) {
   await page.route('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', async (route) => {
     await route.fulfill({ contentType: 'text/css', body: '' });
@@ -190,6 +220,23 @@ test('shows deterministic DNS and WHOIS success states', async ({ page }) => {
   await page.getByRole('button', { name: 'Load WHOIS data' }).click();
   await expect(page.locator('.whois-value').filter({ hasText: 'Google LLC' }).first()).toBeVisible();
   await expect(page.getByText('NET-8-8-8-0-1')).toBeVisible();
+  await expect(page.getByText('ASN registration data is unavailable. Retry to check again.')).toBeVisible();
+});
+
+test('renders IP and ASN registration independently without absent contact fields', async ({ page }) => {
+  await page.setExtraHTTPHeaders({ 'x-real-ip': '192.168.1.10' });
+  await stubWhoisWithAsn(page);
+  await page.goto('/?ip=8.8.8.8');
+
+  await page.getByRole('button', { name: 'Load WHOIS data' }).click();
+
+  const ipRegistration = page.getByRole('region', { name: 'IP registration and netblock' });
+  const asnRegistration = page.getByRole('region', { name: 'ASN registration' });
+  await expect(ipRegistration).toContainText('Google LLC');
+  await expect(ipRegistration).toContainText('NET-8-8-8-0-1');
+  await expect(asnRegistration).toContainText('Google Network');
+  await expect(asnRegistration).toContainText('AS15169');
+  await expect(page.getByText('Abuse contact')).toHaveCount(0);
 });
 
 test('shows unconfigured connectivity diagnostics, retries independently, and makes no lookup call', async ({ page }) => {

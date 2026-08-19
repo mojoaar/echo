@@ -42,7 +42,7 @@ npx playwright test   # local Next server, with RDAP/DNS fixtures in browser spe
 npm audit --audit-level=high
 ```
 
-Browser tests start isolated local Next development servers and intercept RDAP, DNS, Leaflet, and configured probe requests where the upstream service is not the behavior under test. CSP is enabled in every browser project, including the configured-probe assertion; runtime nonce handling keeps development hydration compatible with the production policy. The home page includes a `Copy link` control for the approved `/?ip=` share format; dynamic metadata, canonical, and noindex integration remain in Task 9.
+Browser tests start isolated local Next development servers and intercept RDAP, DNS, Leaflet, and configured probe requests where the upstream service is not the behavior under test. CSP is enabled in every browser project, including the configured-probe assertion; runtime nonce handling keeps development hydration compatible with the production policy. The home page includes a `Copy link` control for the approved `/?ip=` share format, and valid lookup pages receive descriptive noindex metadata with the main site as canonical.
 
 The CI supply-chain jobs require GitHub Actions to be able to download the pinned action dependencies, Docker Buildx to build the local image, and Trivy's vulnerability database to be reachable. Secret scanning uses TruffleHog's verified-results mode and therefore reports only verified findings. Trivy blocks HIGH and CRITICAL vulnerabilities; `.trivyignore` is intentionally absent because no reviewed false positives are currently accepted. SBOM files are retained as workflow artifacts for 30 days. Image signing is intentionally deferred.
 
@@ -77,7 +77,7 @@ Endpoint-specific rate-limit variables are optional. Leave them unset or empty t
 
 ### `GET /api/ip`
 
-Returns the caller's IP address as plain text. Provide `?ip=` to look up an arbitrary address as plain text instead.
+Returns the caller's IP address as plain text. Provide `?ip=` to look up an arbitrary address as plain text instead. Invalid input returns a stable JSON error with `code: "invalid_input"`; rate-limited responses return `code: "rate_limited"`.
 
 ```
 $ curl https://echo.johansen.foo/api/ip
@@ -90,6 +90,8 @@ $ curl https://echo.johansen.foo/api/ip?ip=8.8.8.8
 ### `GET /api/json`
 
 Returns the full geo payload for the caller's IP address, or for a specific address when `?ip=` is provided. Responses are CORS-enabled and carry `x-ratelimit-limit` and `x-ratelimit-remaining` headers. Exceeding the per-IP window returns `429` with `{ "error": "rate limit exceeded", "code": "rate_limited" }` and a `retry-after` header in delta-seconds. Endpoint-specific variables take precedence; the legacy global variables are fallback values only.
+
+All JSON API errors use `{ "error": "...", "code": "..." }` with one of `invalid_input`, `rate_limited`, `upstream_timeout`, `upstream_unavailable`, `not_found`, or `internal_error`. Rate-limited responses include `x-ratelimit-limit`, `x-ratelimit-remaining`, and `retry-after`; `retry-after` is an integer number of seconds until the fixed-window budget resets. The endpoint budgets are `/api/json` 30, `/api/ip` 60, `/api/history` 30, `/api/whois` 10, and `/api/dns` 10 requests per 60 seconds by default, with endpoint-specific environment overrides and the legacy global values as fallback.
 
 ```
 $ curl https://echo.johansen.foo/api/json?ip=8.8.8.8
@@ -116,7 +118,7 @@ $ curl https://echo.johansen.foo/api/json?ip=8.8.8.8
 
 ### `GET /api/whois?ip=8.8.8.8`
 
-Returns WHOIS ownership data for an IP address via [RDAP](https://en.wikipedia.org/wiki/Registration_Data_Access_Protocol), routed automatically to the authoritative regional registry. Includes the network handle, netblock start/end, assigned organization and registrant, abuse contact, and CIDR block. Same CORS and rate-limit headers as `/api/json`; malformed upstream responses are rejected before display.
+Returns WHOIS ownership data for an IP address via [RDAP](https://en.wikipedia.org/wiki/Registration_Data_Access_Protocol), routed automatically to the authoritative regional registry. The response is always the wrapper `{ "ip": ..., "asn": ... }`: `ip` contains the network handle, netblock start/end, assigned organization and registrant, abuse contact, and CIDR block; `asn` is an optional ASN registration object containing `handle`, `name`, `startAutnum`, `endAutnum`, `country`, `organization`, and `abuse`. ASN lookup is derived from the bundled MMDB ASN number, remains on-demand, and can be `null` without failing the IP registration section. There is no separate ASN endpoint. Same CORS and rate-limit headers as `/api/json`; malformed upstream responses are rejected before display. The UI renders IP and ASN sections independently and omits absent abuse/contact rows.
 
 ### `GET /api/dns?name=johansen.foo`
 
@@ -140,7 +142,7 @@ Same CORS and rate-limit headers. This is a breaking change from the previous ra
 
 ### `GET /api/stats?token=SECRET`
 
-Private owner-analytics endpoint. Requires the `STATS_TOKEN` environment variable; requests must pass the matching value via `?token=` or an `Authorization: Bearer SECRET` header. Returns totals, last-24h count, top countries, top IPs, and a per-day breakdown. Returns `404` when `STATS_TOKEN` is unset or the token is wrong. Failed authentication uses the separate `stats-auth` bucket; successful reads are not rate-limited.
+Private owner-analytics endpoint. Requires the `STATS_TOKEN` environment variable; requests should pass the matching value via an `Authorization: Bearer SECRET` header. `?token=SECRET` remains supported for compatibility, but query-string tokens can be copied into browser history and URLs may be retained by reverse-proxy, access, analytics, or monitoring logs. Use the header form for operational access and never publish a token-bearing URL. Returns totals, last-24h count, top countries, top IPs, and a per-day breakdown. Returns `404` when `STATS_TOKEN` is unset or the token is wrong. Failed authentication uses the separate `stats-auth` bucket; successful reads are not rate-limited.
 
 To generate and set a token, add it to a `.env` file next to `docker-compose.yml`:
 
@@ -152,11 +154,11 @@ openssl rand -hex 24        # prints something like 9f8e7d6c5b4a3f2e1d0c9b8a7f6e
 STATS_TOKEN=9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1908
 ```
 
-Then restart with `docker compose up -d` and query as shown above. The token is only ever sent outbound from your host; it is never exposed to visitors.
+Then restart with `docker compose up -d` and query as shown above. The app does not render the token, but query-string authentication is visible to any client or intermediary that receives the URL; prefer the `Authorization` header.
 
 ### `GET /api/health`
 
-Public liveness returns only `{ "status": "ok" }` from `/api/health` and does not write lookup rows or consume lookup rate limits. When `HEALTH_TOKEN` is configured, request `/api/health?readiness=1` with `Authorization: Bearer <token>` to receive restricted readiness details for the database, bundled MMDB files, application version, uptime, and retention configuration. Missing, invalid, or unset readiness credentials return `404`.
+Public liveness returns only `{ "status": "ok" }` from `/api/health` and does not write lookup rows or consume lookup rate limits. The container healthcheck uses this liveness route, not `/api/ip`. When `HEALTH_TOKEN` is configured, request `/api/health?readiness=1` with `Authorization: Bearer <token>` to receive restricted readiness details for the database, bundled MMDB files, application version, uptime, and retention configuration. Missing, invalid, or unset readiness credentials return `404`.
 
 Lookup IPs are retained privately for `LOOKUP_RETENTION_DAYS` days. Public history exposes aggregates only; raw IP statistics remain restricted to `/api/stats`.
 

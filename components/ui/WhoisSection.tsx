@@ -94,10 +94,14 @@ export default function WhoisSection({ ip }: { ip: string }) {
       )}
       {data && (
         <>
-          <h3 className="whois-subtitle">IP registration and netblock</h3>
-          {data.ip ? <WhoisRows rows={ipRows} /> : <p className="whois-hint muted">IP registration data is unavailable.</p>}
-          <h3 className="whois-subtitle">ASN registration</h3>
-          {data.asn ? <WhoisRows rows={asnRows} /> : <p className="whois-hint muted">ASN registration data is unavailable. Retry to check again.</p>}
+          <section aria-labelledby="whois-ip-title">
+            <h3 className="whois-subtitle" id="whois-ip-title">IP registration and netblock</h3>
+            {data.ip ? <WhoisRows rows={ipRows} /> : <p className="whois-hint muted">IP registration data is unavailable.</p>}
+          </section>
+          <section aria-labelledby="whois-asn-title">
+            <h3 className="whois-subtitle" id="whois-asn-title">ASN registration</h3>
+            {data.asn ? <WhoisRows rows={asnRows} /> : <p className="whois-hint muted">ASN registration data is unavailable. Retry to check again.</p>}
+          </section>
         </>
       )}
     </section>
