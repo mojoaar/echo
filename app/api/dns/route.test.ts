@@ -61,6 +61,28 @@ describe('GET /api/dns', () => {
     expect(await res.json()).toEqual({ error: 'dns resolver unavailable', code: 'upstream_unavailable' });
   });
 
+  it('preserves non-timeout partial results', async () => {
+    const dns = await import('@/lib/dns');
+    vi.mocked(dns.resolveRecords).mockResolvedValueOnce({
+      records: {
+        a: ['87.104.91.82'],
+        aaaa: [],
+        mx: [],
+        ns: [],
+        txt: [],
+        soa: [],
+      },
+      cache: 'miss',
+      resolvedAt: '2026-08-19T12:00:00.000Z',
+      durationMs: 12,
+      partial: true,
+    });
+    const res = await GET(new Request('http://localhost/api/dns?name=johansen.foo'));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).partial).toBe(true);
+  });
+
   it('answers OPTIONS with CORS headers', async () => {
     const res = await OPTIONS();
     expect(res.status).toBe(204);

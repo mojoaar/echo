@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   clearDnsCache,
   isPublicHostname,
@@ -53,6 +53,10 @@ describe('resolveRecords', () => {
     clearDnsCache();
     delete process.env.DNS_TIMEOUT_MS;
     delete process.env.DNS_MAX_CONCURRENCY;
+    delete process.env.DNS_CACHE_TTL_MS;
+    delete process.env.DNS_FAILURE_TTL_MS;
+    delete process.env.DNS_CACHE_MAX;
+    vi.useRealTimers();
   });
 
   it('returns records for each type', async () => {
@@ -88,7 +92,14 @@ describe('resolveRecords', () => {
       'example.com',
       stubResolver({
         A: ['10.0.0.1', '192.0.2.1', '87.104.91.82'],
-        AAAA: ['fc00::1', 'fe80::1', '2001:db8::1', '2606:4700:4700::1111'],
+        AAAA: [
+          'fc00::1',
+          'fe80::1',
+          '0:0:0:0:0:0:0:1',
+          '2001:0db8:0000:0000:0000:0000:0000:0001',
+          'ff00:0000:0000:0000:0000:0000:0000:0001',
+          '2606:4700:4700::1111',
+        ],
       }),
     );
     expect(result.records.a).toEqual(['87.104.91.82']);
@@ -108,19 +119,27 @@ describe('resolveRecords', () => {
     expect(result.partial).toBe(true);
   });
 
-  it('classifies an overall deadline as partial and cancels the resolver', async () => {
-    process.env.DNS_TIMEOUT_MS = '20';
-    let cancelled = false;
+  it('classifies the actual deadline as a timeout and stops queued resolver jobs', async () => {
+    process.env.DNS_TIMEOUT_MS = '10';
+    process.env.DNS_MAX_CONCURRENCY = '2';
+    let calls = 0;
+    const rejectActive: Array<(reason?: unknown) => void> = [];
     const resolver: DnsResolver = {
-      resolve: () => new Promise(() => undefined),
+      resolve: () => {
+        calls += 1;
+        return new Promise((_resolve, reject) => {
+          rejectActive.push(reject);
+        });
+      },
       cancel: () => {
-        cancelled = true;
+        for (const reject of rejectActive) reject({ code: 'ECANCELLED' });
       },
     };
-    const result = await resolveRecords('timeout.example.com', resolver);
-    expect(result.records).toEqual({ a: [], aaaa: [], mx: [], ns: [], txt: [], soa: [] });
-    expect(result.partial).toBe(true);
-    expect(cancelled).toBe(true);
+    await expect(resolveRecords('timeout.example.com', resolver)).rejects.toMatchObject({
+      code: 'upstream_timeout',
+    });
+    await Promise.resolve();
+    expect(calls).toBe(2);
   });
 
   it('returns a cache hit for settled results', async () => {
@@ -172,5 +191,66 @@ describe('resolveRecords', () => {
     };
     await resolveRecords('bounded.example.com', resolver);
     expect(maximum).toBe(2);
+  });
+
+  it('expires settled results after the result cache TTL', async () => {
+    vi.useFakeTimers();
+    process.env.DNS_CACHE_TTL_MS = '20';
+    let calls = 0;
+    const resolver: DnsResolver = {
+      async resolve() {
+        calls += 1;
+        return [];
+      },
+    };
+
+    await resolveRecords('expiry.example.com', resolver);
+    await vi.advanceTimersByTimeAsync(21);
+    const result = await resolveRecords('expiry.example.com', resolver);
+
+    expect(result.cache).toBe('miss');
+    expect(calls).toBe(12);
+  });
+
+  it('expires partial results after the failure cache TTL', async () => {
+    vi.useFakeTimers();
+    process.env.DNS_FAILURE_TTL_MS = '20';
+    let calls = 0;
+    const resolver: DnsResolver = {
+      async resolve(_name, rrtype) {
+        calls += 1;
+        if (rrtype === 'A') return ['87.104.91.82'];
+        throw new Error('SERVFAIL');
+      },
+    };
+
+    const first = await resolveRecords('failure-cache.example.com', resolver);
+    const cached = await resolveRecords('failure-cache.example.com', resolver);
+    await vi.advanceTimersByTimeAsync(21);
+    const expired = await resolveRecords('failure-cache.example.com', resolver);
+
+    expect(first.partial).toBe(true);
+    expect(cached.cache).toBe('hit');
+    expect(expired.cache).toBe('miss');
+    expect(calls).toBe(12);
+  });
+
+  it('evicts the oldest entry when the cache reaches its maximum size', async () => {
+    process.env.DNS_CACHE_MAX = '2';
+    let calls = 0;
+    const resolver: DnsResolver = {
+      async resolve() {
+        calls += 1;
+        return [];
+      },
+    };
+
+    await resolveRecords('oldest.example.com', resolver);
+    await resolveRecords('middle.example.com', resolver);
+    await resolveRecords('newest.example.com', resolver);
+    const evicted = await resolveRecords('oldest.example.com', resolver);
+
+    expect(evicted.cache).toBe('miss');
+    expect(calls).toBe(24);
   });
 });

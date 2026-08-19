@@ -142,8 +142,10 @@ function isDnsLookupMetadata(value: unknown): value is DnsLookupResult & { name:
   return (
     (candidate.cache === 'hit' || candidate.cache === 'miss') &&
     typeof candidate.resolvedAt === 'string' &&
+    Number.isFinite(Date.parse(candidate.resolvedAt)) &&
     typeof candidate.durationMs === 'number' &&
     Number.isFinite(candidate.durationMs) &&
+    candidate.durationMs >= 0 &&
     typeof candidate.partial === 'boolean'
   );
 }
