@@ -472,6 +472,64 @@ code {
   margin-top: 10px;
 }
 
+.connectivity {
+  margin-top: 40px;
+}
+
+.connectivity-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.connectivity-head .section-title {
+  margin-bottom: 6px;
+}
+
+.connectivity-description,
+.connectivity-hint {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.connectivity-results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.connectivity-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 58px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 0.85rem;
+}
+
+.connectivity-result span {
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.connectivity-result strong {
+  font-size: 0.8rem;
+  font-weight: 400;
+  text-align: right;
+}
+
+.connectivity-hint {
+  margin-top: 10px;
+}
+
 .text-button {
   appearance: none;
   border: 0;
@@ -582,5 +640,19 @@ footer a:hover {
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .connectivity-head {
+    flex-direction: column;
+  }
+
+  .connectivity-head .btn {
+    width: 100%;
+  }
+
+  .connectivity-results {
+    grid-template-columns: 1fr;
   }
 }

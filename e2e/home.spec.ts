@@ -153,6 +153,26 @@ test('shows deterministic DNS and WHOIS success states', async ({ page }) => {
   await expect(page.getByText('NET-8-8-8-0-1')).toBeVisible();
 });
 
+test('shows unconfigured connectivity diagnostics, retries independently, and makes no lookup call', async ({ page }) => {
+  await page.setExtraHTTPHeaders({ 'x-real-ip': '192.168.1.10' });
+  const apiRequests: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/api/')) apiRequests.push(request.url());
+  });
+  await page.goto('/');
+
+  await expect(page.getByRole('heading', { name: 'Connectivity diagnostic' })).toBeVisible();
+  await expect(page.locator('.connectivity-result').nth(0)).toContainText('IPv4Not configured');
+  await expect(page.locator('.connectivity-result').nth(1)).toContainText('IPv6Not configured');
+  await expect(page.getByText('Browser reachability only. This does not measure or change the IP recorded by the server.')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Test connectivity' }).click();
+  const retry = page.getByRole('button', { name: 'Retry connectivity test' });
+  await retry.click();
+  await expect(retry).toBeVisible();
+  expect(apiRequests).toEqual([]);
+});
+
 test('renders the map modal with the CSS marker and restores focus', async ({ page }) => {
   await page.setExtraHTTPHeaders({ 'x-real-ip': '192.168.1.10' });
   await stubLeaflet(page);

@@ -11,6 +11,7 @@ Yet another "what is my IP" service — but this one tells you what the internet
 - Per-visitor rate limiting on all public API endpoints
 - Light and dark themes with a manual toggle
 - Copy / copy-as-JSON buttons and a Leaflet map modal for coordinates
+- On-demand browser IPv4 and IPv6 connectivity diagnostics
 - Self-hosted Umami analytics, enabled through environment variables
 - Ships as a Docker image with a persistent data volume
 
@@ -50,6 +51,8 @@ The CI supply-chain jobs require GitHub Actions to be able to download the pinne
 | Variable | Default | Description |
 | --- | --- | --- |
 | `APP_URL` | `https://echo.johansen.foo` | Public origin used in metadata and footer curl examples |
+| `CONNECTIVITY_IPV4_URL` | _(unset)_ | Public CORS-enabled A-only probe URL; unset disables the IPv4 diagnostic |
+| `CONNECTIVITY_IPV6_URL` | _(unset)_ | Public CORS-enabled AAAA-only probe URL; unset disables the IPv6 diagnostic |
 | `ECHO_TAG` | `latest` | GHCR image tag to pull (e.g. `v1.2.0`) |
 | `TZ` | `Europe/Copenhagen` | Container timezone |
 | `RATE_LIMIT_MAX` | `30` | Legacy fallback max for endpoints without an endpoint-specific value |
@@ -184,6 +187,10 @@ docker run -d --name echo -p 3100:3000 \
 The default timezone is `Europe/Copenhagen`; set `TZ` to change it (for example `UTC`).
 
 The app trusts `x-real-ip` first, then `x-forwarded-for`. The reverse proxy must overwrite these headers with the verified client address. Treat the proxy and host firewall as the trusted boundary: do not expose the application port directly to untrusted networks.
+
+### Connectivity probe deployment
+
+The optional connectivity diagnostic requires two separate public probe hosts: one hostname with an A record only for `CONNECTIVITY_IPV4_URL`, and another hostname with an AAAA record only for `CONNECTIVITY_IPV6_URL`. Each URL should serve a lightweight successful GET response with CORS enabled for the echo site origin. The response must be static or otherwise side-effect-free: probe requests must not write the lookup database, call public lookup APIs, or consume any echo rate-limit bucket. The diagnostic measures browser reachability to each address family and does not reveal or replace the server-recorded visitor IP.
 
 The external TLS proxy owns HTTPS-only deployment settings such as HSTS (`Strict-Transport-Security`); the container does not emit HSTS because it can also be reached over the LAN on its HTTP port. Configure HSTS at the proxy only after HTTPS is working for the intended hostnames. Keep the host firewall and NPM access policy aligned with the intended boundary: port `3100` is available for the selected LAN deployment, but must not be reachable from untrusted networks. NPM must overwrite client-supplied forwarding headers and preserve the app's response security headers; any NPM custom header rules that overwrite CSP, COOP, or CORP are part of the deployment security configuration and must be reviewed there.
 

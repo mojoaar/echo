@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'echo | what the internet sees when you connect',
     description:
-      'See your IP address, location, ISP and more. Echo shows you exactly what the internet sees when you connect.',
+      'See your IP address, location, ISP and more, with an on-demand browser connectivity diagnostic.',
     applicationName: 'echo',
     metadataBase: new URL(siteUrl),
     openGraph: {

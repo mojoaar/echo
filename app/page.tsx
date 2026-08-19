@@ -14,6 +14,7 @@ import WhoisSection from '@/components/ui/WhoisSection';
 import DnsSection from '@/components/ui/DnsSection';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import TypeOnText from '@/components/ui/TypeOnText';
+import ConnectivitySection from '@/components/ui/ConnectivitySection';
 import { getVersion } from '@/lib/version';
 
 export const dynamic = 'force-dynamic';
@@ -208,6 +209,11 @@ export default async function Page({
         {info && !info.isPrivate ? <WhoisSection ip={info.ip} /> : null}
 
         <DnsSection />
+
+        <ConnectivitySection
+          ipv4Url={process.env.CONNECTIVITY_IPV4_URL}
+          ipv6Url={process.env.CONNECTIVITY_IPV6_URL}
+        />
 
         <FeedStats total={stats.total} last24h={stats.last24h} topCountries={stats.topCountries} />
       </main>
