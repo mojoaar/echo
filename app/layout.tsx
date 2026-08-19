@@ -4,7 +4,7 @@ import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import PwaRegister from '@/components/ui/PwaRegister';
 
-const siteUrl = process.env.APP_URL ?? 'https://echo.johansen.foo';
+const siteUrl = process.env.APP_URL || 'https://echo.johansen.foo';
 
 export const viewport: Viewport = {
   width: 'device-width',

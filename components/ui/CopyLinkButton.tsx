@@ -1,12 +1,12 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { buildLookupUrl } from '@/lib/share';
 
 type Status = 'idle' | 'copied' | 'failed';
 
-export default function CopyLinkButton({ ip }: { ip: string }) {
+export default function CopyLinkButton({ ip, baseUrl }: { ip: string; baseUrl?: string }) {
   const [status, setStatus] = useState<Status>('idle');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const shareUrl = `/?ip=${encodeURIComponent(ip)}`;
 
   useEffect(() => {
     return () => {
@@ -16,6 +16,7 @@ export default function CopyLinkButton({ ip }: { ip: string }) {
 
   async function copyLink() {
     try {
+      const shareUrl = buildLookupUrl(baseUrl ?? window.location.origin, ip);
       await navigator.clipboard.writeText(shareUrl);
       setStatus('copied');
     } catch {

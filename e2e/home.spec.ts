@@ -114,7 +114,7 @@ test('copies the share link and reports share-link failure honestly', async ({ p
   await copyLink.click();
   await expect(page.getByRole('button', { name: 'Link copied', exact: true })).toBeVisible();
   await expect.poll(() => page.evaluate(() => (window as unknown as { copiedText: string }).copiedText)).toBe(
-    '/?ip=8.8.8.8',
+    `${new URL(page.url()).origin}/?ip=8.8.8.8`,
   );
 
   await page.addInitScript(() => {
@@ -126,6 +126,34 @@ test('copies the share link and reports share-link failure honestly', async ({ p
   await page.reload();
   await page.getByRole('button', { name: 'Copy link', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Copy link failed', exact: true })).toBeVisible();
+});
+
+test('adds noindex lookup metadata and keeps the home metadata indexable', async ({ page }) => {
+  await page.setExtraHTTPHeaders({ 'x-real-ip': '192.168.1.10' });
+  await page.goto('/?ip=2001%3A4860%3A4860%3A%3A8888');
+
+  await expect(page).toHaveTitle(/IP lookup: 2001:4860:4860::8888 \| echo/);
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    'content',
+    /2001:4860:4860::8888/,
+  );
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/);
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://echo.johansen.foo');
+
+  await page.goto('/');
+  await expect(page).toHaveTitle('echo | what the internet sees when you connect');
+  await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+  await expect(page.locator('link[rel="canonical"]')).toHaveCount(0);
+});
+
+test('leaves invalid lookup metadata as the home metadata', async ({ page }) => {
+  await page.setExtraHTTPHeaders({ 'x-real-ip': '192.168.1.10' });
+  await page.goto('/?ip=not-an-ip');
+
+  await expect(page).toHaveTitle('echo | what the internet sees when you connect');
+  await expect(page.getByText('"not-an-ip" is not a valid IP address.')).toBeVisible();
+  await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+  await expect(page.locator('link[rel="canonical"]')).toHaveCount(0);
 });
 
 test('switches themes and persists the selected theme', async ({ page }) => {

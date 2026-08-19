@@ -16,6 +16,7 @@ import ThemeToggle from '@/components/ui/ThemeToggle';
 import TypeOnText from '@/components/ui/TypeOnText';
 import ConnectivitySection from '@/components/ui/ConnectivitySection';
 import { getVersion } from '@/lib/version';
+import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,36 @@ function logOperationalEvent(event: {
 }
 
 const appVersion = getVersion();
+const defaultSiteUrl = 'https://echo.johansen.foo';
+
+function queryIp(value: string | string[] | undefined): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ ip?: string | string[] }>;
+}): Promise<Metadata> {
+  const rawTarget = queryIp((await searchParams).ip);
+  if (!rawTarget) return {};
+
+  const normalized = normalizeIp(rawTarget);
+  if (!isValidIp(normalized)) return {};
+
+  const siteUrl = process.env.APP_URL || defaultSiteUrl;
+  const canonicalUrl = new URL(siteUrl);
+  canonicalUrl.pathname = '/';
+  canonicalUrl.search = '';
+  canonicalUrl.hash = '';
+
+  return {
+    title: `IP lookup: ${normalized} | echo`,
+    description: `Lookup location, ISP, hostname and connectivity details for ${normalized} with echo.`,
+    alternates: { canonical: canonicalUrl.toString() },
+    robots: { index: false, follow: true },
+  };
+}
 
 type InfoCardProps = {
   label: string;
@@ -58,12 +89,12 @@ function InfoCard({ label, value, children }: InfoCardProps) {
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ ip?: string }>;
+  searchParams: Promise<{ ip?: string | string[] }>;
 }) {
   const params = await searchParams;
-  const rawTarget = params.ip?.trim() ?? null;
+  const rawTarget = queryIp(params.ip);
   const visitorIp = extractVisitorIp(await headers());
-  const baseUrl = process.env.APP_URL ?? 'https://echo.johansen.foo';
+  const baseUrl = process.env.APP_URL || defaultSiteUrl;
 
   let target: string | null = null;
   let error: string | null = null;
@@ -156,7 +187,7 @@ export default async function Page({
                   <>
                     <CopyButton value={info.ip} label="Copy" />
                     <CopyButton value={JSON.stringify(info, null, 2)} label="Copy as JSON" />
-                    <CopyLinkButton ip={info.ip} />
+                    <CopyLinkButton ip={info.ip} baseUrl={process.env.APP_URL || undefined} />
                   </>
                 )}
                 <RefreshButton />
