@@ -146,6 +146,22 @@ describe('createHostnameCache', () => {
     expect(resolve).toHaveBeenCalledTimes(1);
   });
 
+  it('shares a pending hostname lookup between concurrent callers', async () => {
+    let release!: (value: string) => void;
+    const pending = new Promise<string>((resolve) => {
+      release = resolve;
+    });
+    const resolve = vi.fn(() => pending);
+    const cache = createHostnameCache(resolve, { ttlMs: 60_000, maxKeys: 10 }, () => 1000);
+    const first = cache.get('8.8.4.4');
+    const second = cache.get('8.8.4.4');
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(first).toBe(second);
+    release('ptr');
+    await expect(first).resolves.toBe('ptr');
+    await expect(second).resolves.toBe('ptr');
+  });
+
   it('resolves again after the ttl elapses', async () => {
     let clock = 0;
     const resolve = vi.fn(async () => 'x');

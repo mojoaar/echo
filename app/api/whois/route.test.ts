@@ -2,6 +2,14 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { GET, OPTIONS } from './route';
 import { resetRateLimiter } from '@/lib/ratelimit';
 
+vi.mock('@/lib/geo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/geo')>();
+  return {
+    ...actual,
+    createReaders: () => ({ city: null, asn: null }),
+  };
+});
+
 const arinFixture = {
   handle: 'NET-8-8-8-0-1',
   name: 'LVLT-GOGL-8-8-8',
@@ -33,13 +41,14 @@ describe('GET /api/whois', () => {
     vi.unstubAllGlobals();
   });
 
-  it('returns rdap info for a looked-up ip', async () => {
+  it('returns an IP and ASN wrapper for a looked-up ip', async () => {
     const res = await GET(new Request('http://localhost/api/whois?ip=8.8.8.8'));
     expect(res.status).toBe(200);
     expect(res.headers.get('access-control-allow-origin')).toBe('*');
     const body = await res.json();
-    expect(body.handle).toBe('NET-8-8-8-0-1');
-    expect(body.organization).toBe('Google LLC');
+    expect(body.ip.handle).toBe('NET-8-8-8-0-1');
+    expect(body.ip.organization).toBe('Google LLC');
+    expect(body.asn).toBeNull();
   });
 
   it('rejects an invalid ip with 400', async () => {

@@ -131,25 +131,37 @@ export interface HostnameCache<T> {
   get: (key: string) => Promise<T>;
 }
 
+interface CacheEntry<T> {
+  value?: T;
+  expires: number;
+  pending?: Promise<T>;
+}
+
 export function createHostnameCache<T>(
   resolve: (key: string) => Promise<T>,
-  { ttlMs, maxKeys }: { ttlMs: number; maxKeys: number },
+  { ttlMs, maxKeys, failureTtlMs = 1_000 }: { ttlMs: number; maxKeys: number; failureTtlMs?: number },
   now: () => number = Date.now,
 ): HostnameCache<T> {
-  const cache = new Map<string, { value: T; expires: number }>();
+  const cache = new Map<string, CacheEntry<T>>();
   return {
     get(key: string): Promise<T> {
       const t = now();
       const hit = cache.get(key);
-      if (hit && hit.expires > t) return Promise.resolve(hit.value);
-      return resolve(key).then((value) => {
+      if (hit?.pending) return hit.pending;
+      if (hit && hit.expires > t) return Promise.resolve(hit.value as T);
+      const pending = resolve(key).then((value) => {
         if (cache.size >= maxKeys) {
           const oldestKey = cache.keys().next().value;
           if (oldestKey) cache.delete(oldestKey);
         }
-        cache.set(key, { value, expires: t + ttlMs });
+        cache.set(key, { value, expires: now() + (value === null ? failureTtlMs : ttlMs) });
         return value;
+      }).catch((error: unknown) => {
+        if (cache.get(key)?.pending === pending) cache.delete(key);
+        throw error;
       });
+      cache.set(key, { expires: 0, pending });
+      return pending;
     },
   };
 }

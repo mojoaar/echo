@@ -9,7 +9,7 @@ export interface DnsResponse {
     soa: string[];
   };
 }
-export interface RdapResponse {
+export interface RdapInfoResponse {
   handle: string | null;
   name: string | null;
   startAddress: string | null;
@@ -19,6 +19,19 @@ export interface RdapResponse {
   organization: string | null;
   registrant: string | null;
   abuse: { email: string | null; phone: string | null } | null;
+}
+export interface RdapAsnResponse {
+  handle: string | null;
+  name: string | null;
+  startAutnum: number | null;
+  endAutnum: number | null;
+  country: string | null;
+  organization: string | null;
+  abuse: { email: string | null; phone: string | null } | null;
+}
+export interface RdapResponse {
+  ip: RdapInfoResponse | null;
+  asn: RdapAsnResponse | null;
 }
 
 export interface StatsResponse {
@@ -89,8 +102,7 @@ export function isDnsResponse(value: unknown): value is DnsResponse {
   const records = value.records;
   return ['a', 'aaaa', 'mx', 'ns', 'txt', 'soa'].every((key) => isStringArray(records[key]));
 }
-export function isRdapResponse(value: unknown): value is RdapResponse | null {
-  if (value === null) return true;
+function isRdapInfoResponse(value: unknown): value is RdapInfoResponse {
   if (!isRecord(value)) return false;
   return (
     isNullableString(value.handle) &&
@@ -103,6 +115,25 @@ export function isRdapResponse(value: unknown): value is RdapResponse | null {
     isNullableString(value.registrant) &&
     isAbuse(value.abuse)
   );
+}
+
+function isRdapAsnResponse(value: unknown): value is RdapAsnResponse {
+  if (!isRecord(value)) return false;
+  return (
+    isNullableString(value.handle) &&
+    isNullableString(value.name) &&
+    isNullableNumber(value.startAutnum) &&
+    isNullableNumber(value.endAutnum) &&
+    isNullableString(value.country) &&
+    isNullableString(value.organization) &&
+    isAbuse(value.abuse)
+  );
+}
+
+export function isRdapResponse(value: unknown): value is RdapResponse {
+  return isRecord(value) &&
+    (value.ip === null || isRdapInfoResponse(value.ip)) &&
+    (value.asn === null || isRdapAsnResponse(value.asn));
 }
 
 export function isStatsResponse(value: unknown): value is StatsResponse {

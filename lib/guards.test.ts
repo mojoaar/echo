@@ -19,15 +19,26 @@ const dnsResponse = {
 };
 
 const rdapResponse = {
-  handle: 'NET-EXAMPLE',
-  name: 'Example Network',
-  startAddress: '192.0.2.0',
-  endAddress: '192.0.2.255',
-  country: 'US',
-  cidr: '192.0.2.0/24',
-  organization: 'Example Org',
-  registrant: 'Example Org',
-  abuse: { email: 'abuse@example.com', phone: null },
+  ip: {
+    handle: 'NET-EXAMPLE',
+    name: 'Example Network',
+    startAddress: '192.0.2.0',
+    endAddress: '192.0.2.255',
+    country: 'US',
+    cidr: '192.0.2.0/24',
+    organization: 'Example Org',
+    registrant: 'Example Org',
+    abuse: { email: 'abuse@example.com', phone: null },
+  },
+  asn: {
+    handle: 'AS64500',
+    name: 'Example ASN',
+    startAutnum: 64500,
+    endAutnum: 64500,
+    country: 'US',
+    organization: 'Example Org',
+    abuse: { email: 'abuse@example.com', phone: null },
+  },
 };
 
 const statsResponse = {
@@ -62,7 +73,7 @@ describe('runtime response guards', () => {
     expect(isRdapResponse({ ...rdapResponse, extra: true })).toBe(true);
     expect(isStatsResponse({ ...statsResponse, extra: true })).toBe(true);
     expect(isIpInfo({ ...ipInfo, extra: true })).toBe(true);
-    expect(isRdapResponse(null)).toBe(true);
+    expect(isRdapResponse({ ip: null, asn: null })).toBe(true);
   });
   it('rejects DNS payloads with missing arrays or wrong scalar types', () => {
     expect(isDnsResponse({ ...dnsResponse, name: 42 })).toBe(false);
@@ -75,9 +86,9 @@ describe('runtime response guards', () => {
   });
 
   it('rejects RDAP payloads with malformed optional fields', () => {
-    expect(isRdapResponse({ ...rdapResponse, organization: 42 })).toBe(false);
-    expect(isRdapResponse({ ...rdapResponse, abuse: { email: 'abuse@example.com' } })).toBe(false);
-    expect(isRdapResponse({ ...rdapResponse, abuse: 'abuse@example.com' })).toBe(false);
+    expect(isRdapResponse({ ...rdapResponse, ip: { ...rdapResponse.ip, organization: 42 } })).toBe(false);
+    expect(isRdapResponse({ ...rdapResponse, ip: { ...rdapResponse.ip, abuse: { email: 'abuse@example.com' } } })).toBe(false);
+    expect(isRdapResponse({ ...rdapResponse, asn: { ...rdapResponse.asn, abuse: 'abuse@example.com' } })).toBe(false);
   });
 
   it('rejects stats payloads with missing arrays or wrong scalar types', () => {

@@ -17,9 +17,21 @@ export interface RdapInfo {
   abuse: RdapAbuse | null;
 }
 
+export interface RdapAsnInfo {
+  handle: string | null;
+  name: string | null;
+  startAutnum: number | null;
+  endAutnum: number | null;
+  country: string | null;
+  organization: string | null;
+  abuse: RdapAbuse | null;
+}
+
 const RDAP_BASE = 'https://rdap-bootstrap.arin.net/bootstrap/ip/';
+const RDAP_ASN_BASE = 'https://rdap-bootstrap.arin.net/bootstrap/autnum/';
 const RDAP_TIMEOUT_MS = 8_000;
 const RDAP_TTL_MS = 86_400_000;
+const RDAP_FAILURE_TTL_MS = 1_000;
 const RDAP_MAX_KEYS = 500;
 
 type AnyRecord = Record<string, unknown>;
@@ -80,6 +92,11 @@ function extractCidr(list: unknown): string | null {
   return null;
 }
 
+function autnum(value: unknown): number | null {
+  const number = typeof value === 'number' ? value : typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : NaN;
+  return Number.isSafeInteger(number) && number >= 0 ? number : null;
+}
+
 export function parseRdap(data: unknown): RdapInfo | null {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
   const rec = data as AnyRecord;
@@ -93,6 +110,21 @@ export function parseRdap(data: unknown): RdapInfo | null {
     cidr: extractCidr(rec.cidr0_cidrs),
     organization: firstEntityFn(entities, ['organization', 'registrant']),
     registrant: firstEntityFn(entities, ['registrant']),
+    abuse: abuseContact(entities),
+  };
+}
+
+export function parseRdapAsn(data: unknown): RdapAsnInfo | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  const rec = data as AnyRecord;
+  const entities = Array.isArray(rec.entities) ? (rec.entities as unknown[]) : [];
+  return {
+    handle: str(rec.handle),
+    name: str(rec.name),
+    startAutnum: autnum(rec.startAutnum),
+    endAutnum: autnum(rec.endAutnum),
+    country: str(rec.country),
+    organization: firstEntityFn(entities, ['organization', 'registrant']),
     abuse: abuseContact(entities),
   };
 }
@@ -118,12 +150,43 @@ export async function queryRdap(
   }
 }
 
+export async function queryRdapAsn(
+  asn: number,
+  doFetch: typeof fetch = fetch,
+): Promise<RdapAsnInfo | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RDAP_TIMEOUT_MS);
+  try {
+    const res = await doFetch(`${RDAP_ASN_BASE}${asn}`, {
+      headers: { accept: 'application/rdap+json' },
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    return parseRdapAsn(await res.json());
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const cachedRdap: HostnameCache<RdapInfo | null> = createHostnameCache<RdapInfo | null>(
   queryRdap,
-  { ttlMs: RDAP_TTL_MS, maxKeys: RDAP_MAX_KEYS },
+  { ttlMs: RDAP_TTL_MS, failureTtlMs: RDAP_FAILURE_TTL_MS, maxKeys: RDAP_MAX_KEYS },
+  Date.now,
+);
+
+const cachedRdapAsn: HostnameCache<RdapAsnInfo | null> = createHostnameCache<RdapAsnInfo | null>(
+  (key) => queryRdapAsn(Number(key)),
+  { ttlMs: RDAP_TTL_MS, failureTtlMs: RDAP_FAILURE_TTL_MS, maxKeys: RDAP_MAX_KEYS },
   Date.now,
 );
 
 export async function fetchRdap(ip: string): Promise<RdapInfo | null> {
   return cachedRdap.get(ip);
+}
+
+export async function fetchRdapAsn(asn: number): Promise<RdapAsnInfo | null> {
+  return cachedRdapAsn.get(String(asn));
 }

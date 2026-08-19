@@ -1,6 +1,9 @@
 import { extractVisitorIp, normalizeIp } from '@/lib/ip';
 import { isValidIp } from '@/lib/validate';
 import { fetchRdap } from '@/lib/rdap';
+import { fetchRdapAsn } from '@/lib/rdap';
+import { createReaders } from '@/lib/geo';
+import type { AsnRecord } from '@/lib/types';
 import { getRateLimiter } from '@/lib/ratelimit';
 import { apiError, withRateHeaders } from '@/lib/api';
 
@@ -37,6 +40,11 @@ export async function GET(request: Request) {
       withRateHeaders(corsHeaders, rate),
     );
   }
-  const data = await fetchRdap(ip);
-  return Response.json(data, { headers: withRateHeaders(corsHeaders, rate) });
+  const ipData = await fetchRdap(ip);
+  const asnRecord = createReaders().asn?.get(ip) as AsnRecord | null | undefined;
+  const asnNumber = asnRecord?.autonomous_system_number;
+  const asn = typeof asnNumber === 'number' && Number.isSafeInteger(asnNumber) && asnNumber >= 0
+    ? await fetchRdapAsn(asnNumber)
+    : null;
+  return Response.json({ ip: ipData, asn }, { headers: withRateHeaders(corsHeaders, rate) });
 }

@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import { parseRdap, queryRdap } from './rdap';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  fetchRdap,
+  fetchRdapAsn,
+  parseRdap,
+  parseRdapAsn,
+  queryRdap,
+  queryRdapAsn,
+} from './rdap';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -26,6 +33,28 @@ const arinFixture = {
     },
   ],
 };
+
+const asnFixture = {
+  handle: 'AS15169',
+  name: 'GOOGLE',
+  startAutnum: 15169,
+  endAutnum: '15169',
+  country: 'US',
+  entities: [
+    {
+      roles: ['organization'],
+      vcardArray: ['vcard', [['fn', {}, 'text', 'Google LLC']]],
+    },
+    {
+      roles: ['abuse'],
+      vcardArray: ['vcard', [['email', {}, 'text', 'abuse@google.com'], ['tel', {}, 'text', '+1-555-0100']]],
+    },
+  ],
+};
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('queryRdap', () => {
   it('parses an arin-like rdap response', async () => {
@@ -73,6 +102,74 @@ describe('queryRdap', () => {
       registrant: null,
       abuse: null,
     });
+  });
+});
+
+describe('ASN RDAP', () => {
+  it('parses ASN registration fields and numeric ranges', async () => {
+    const info = await queryRdapAsn(15169, async (url) => {
+      expect(url).toContain('/autnum/15169');
+      return jsonResponse(asnFixture);
+    });
+    expect(info).toEqual({
+      handle: 'AS15169',
+      name: 'GOOGLE',
+      startAutnum: 15169,
+      endAutnum: 15169,
+      country: 'US',
+      organization: 'Google LLC',
+      abuse: { email: 'abuse@google.com', phone: '+1-555-0100' },
+    });
+  });
+
+  it('ignores invalid vCards and unsafe ASN ranges', () => {
+    expect(parseRdapAsn({
+      handle: 'AS1',
+      startAutnum: '9007199254740992',
+      endAutnum: 'not-a-number',
+      entities: [
+        { roles: ['organization'], vcardArray: ['vcard', [['fn', {}, 'text', 42]]] },
+        { roles: ['abuse'], vcardArray: ['vcard', [['email', {}, 'text', null]]] },
+      ],
+    })).toEqual({
+      handle: 'AS1',
+      name: null,
+      startAutnum: null,
+      endAutnum: null,
+      country: null,
+      organization: null,
+      abuse: null,
+    });
+  });
+
+  it('returns null for unavailable ASN responses and rejected requests', async () => {
+    expect(await queryRdapAsn(15169, async () => jsonResponse({}, 503))).toBeNull();
+    expect(await queryRdapAsn(15169, async () => { throw new Error('timeout'); })).toBeNull();
+  });
+});
+
+describe('cached RDAP lookups', () => {
+  it('shares one pending IP request between concurrent callers', async () => {
+    let release!: () => void;
+    const response = new Promise<Response>((resolve) => {
+      release = () => resolve(jsonResponse(arinFixture));
+    });
+    const fetch = vi.fn(() => response);
+    vi.stubGlobal('fetch', fetch);
+
+    const first = fetchRdap('203.0.113.10');
+    const second = fetchRdap('203.0.113.10');
+    release();
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('serves successful ASN lookups from cache', async () => {
+    const fetch = vi.fn(async () => jsonResponse(asnFixture));
+    vi.stubGlobal('fetch', fetch);
+    await fetchRdapAsn(64500);
+    await fetchRdapAsn(64500);
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
 
