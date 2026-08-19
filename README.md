@@ -118,6 +118,18 @@ Same CORS and rate-limit headers. This is a breaking change from the previous ra
 
 Private owner-analytics endpoint. Requires the `STATS_TOKEN` environment variable; requests must pass the matching value via `?token=` or an `Authorization: Bearer SECRET` header. Returns totals, last-24h count, top countries, top IPs, and a per-day breakdown. Returns `404` when `STATS_TOKEN` is unset or the token is wrong, and is not rate-limited.
 
+To generate and set a token, add it to a `.env` file next to `docker-compose.yml`:
+
+```bash
+openssl rand -hex 24        # prints something like 9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1908
+```
+
+```
+STATS_TOKEN=9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1908
+```
+
+Then restart with `docker compose up -d` and query as shown above. The token is only ever sent outbound from your host; it is never exposed to visitors.
+
 ## Deployment
 
 Copy `docker-compose.yml` to the host, then:
