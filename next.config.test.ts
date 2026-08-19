@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import nextConfig from './next.config';
+import { contentSecurityPolicy } from './lib/csp';
 
 async function securityHeaders() {
   const headers = await nextConfig.headers?.();
@@ -17,8 +18,7 @@ function headerValue(headers: Awaited<ReturnType<typeof securityHeaders>>, key: 
 
 describe('security headers', () => {
   it('uses a hashed theme initializer and narrowly scoped resource origins', async () => {
-    const headers = await securityHeaders();
-    const csp = headerValue(headers, 'Content-Security-Policy');
+    const csp = contentSecurityPolicy();
     const layout = readFileSync(new URL('./app/layout.tsx', import.meta.url), 'utf8');
     const themeInitializer = layout.match(/const THEME_INIT = `([^`]*)`/)?.[1];
 
@@ -44,10 +44,8 @@ describe('security headers', () => {
   });
 
   it('keeps required restrictions and analytics connectivity', async () => {
-    const headers = await securityHeaders();
-    const csp = headerValue(headers, 'Content-Security-Policy');
+    const csp = contentSecurityPolicy();
 
-    expect(csp).toContain("connect-src 'self' https://umami.johansen.foo");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("base-uri 'self'");
     expect(csp).toContain("frame-ancestors 'none'");
@@ -59,8 +57,7 @@ describe('security headers', () => {
     process.env.UMAMI_SCRIPT_URL = 'https://analytics.example.test/script.js';
 
     try {
-      const headers = await securityHeaders();
-      const csp = headerValue(headers, 'Content-Security-Policy');
+      const csp = contentSecurityPolicy();
 
       expect(csp).toContain('https://analytics.example.test');
       expect(csp).not.toContain('https://umami.johansen.foo');

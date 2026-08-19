@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import PwaRegister from '@/components/ui/PwaRegister';
@@ -40,13 +41,14 @@ const jetbrains = JetBrains_Mono({
 
 const THEME_INIT = `(function(){try{var t=localStorage.getItem('echo-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})()`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const umamiUrl = process.env.UMAMI_SCRIPT_URL;
   const umamiId = process.env.UMAMI_WEBSITE_ID;
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
     <html lang="en" data-theme="dark" className={jetbrains.variable} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="echo" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

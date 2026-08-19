@@ -53,6 +53,14 @@ describe('probeConnectivity', () => {
     });
   });
 
+  it('classifies a non-OK response as unreachable', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false });
+
+    await expect(probeConnectivity('https://v4.example.test/probe', 2500, fetchImpl)).resolves.toEqual({
+      state: 'unreachable',
+    });
+  });
+
   it('keeps IPv4 and IPv6 probe outcomes independent', async () => {
     const fetchImpl = vi.fn((url: string) =>
       url.includes('v4')
