@@ -52,3 +52,13 @@ STATUS: DONE_WITH_CONCERNS
 - Lint: `npm run lint` passed (`tsc --noEmit`).
 - Full suite: `npm test` passed 148 tests across 17 files.
 - `git diff --check` passed.
+
+## Remaining Fix Evidence
+
+- RED: `npx vitest run lib/rdap.test.ts app/api/whois/route.test.ts lib/geo.test.ts` failed with 2 expected regressions: unresolved key pressure admitted unbounded new keys, and `{ entities: [{}] }` produced an all-null ASN object.
+- `lib/geo.ts`: added bounded pending admission with `maxPending` defaulting to `maxKeys`; same-key callers still share the in-flight promise, active requests are never evicted, and over-capacity new keys reject immediately.
+- `lib/rdap.ts`: ASN data is now considered meaningful only when non-empty registration fields or parsed organization/abuse data exist, preserving valid partial ASN responses.
+- Focused GREEN: `npx vitest run lib/rdap.test.ts app/api/whois/route.test.ts lib/geo.test.ts` passed 43 tests across 3 files.
+- Lint: `npm run lint` passed (`tsc --noEmit`).
+- Full suite: `npm test` passed 150 tests across 17 files.
+- `git diff --check` passed.

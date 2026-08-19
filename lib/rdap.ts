@@ -40,6 +40,10 @@ function str(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+function hasText(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 function vcardProps(entity: unknown): unknown[] {
   const arr = (entity as AnyRecord | undefined)?.vcardArray;
   const inner = Array.isArray(arr) ? (arr as unknown[])[1] : undefined;
@@ -118,13 +122,16 @@ export function parseRdapAsn(data: unknown): RdapAsnInfo | null {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
   const rec = data as AnyRecord;
   const entities = Array.isArray(rec.entities) ? (rec.entities as unknown[]) : [];
+  const organization = firstEntityFn(entities, ['organization', 'registrant']);
+  const abuse = abuseContact(entities);
   const hasRegistrationData =
-    typeof rec.handle === 'string' ||
-    typeof rec.name === 'string' ||
+    hasText(rec.handle) ||
+    hasText(rec.name) ||
     autnum(rec.startAutnum) !== null ||
     autnum(rec.endAutnum) !== null ||
-    typeof rec.country === 'string' ||
-    entities.length > 0;
+    hasText(rec.country) ||
+    organization !== null ||
+    abuse !== null;
   if (!hasRegistrationData) return null;
   return {
     handle: str(rec.handle),
@@ -132,8 +139,8 @@ export function parseRdapAsn(data: unknown): RdapAsnInfo | null {
     startAutnum: autnum(rec.startAutnum),
     endAutnum: autnum(rec.endAutnum),
     country: str(rec.country),
-    organization: firstEntityFn(entities, ['organization', 'registrant']),
-    abuse: abuseContact(entities),
+    organization,
+    abuse,
   };
 }
 

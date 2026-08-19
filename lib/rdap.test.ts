@@ -136,6 +136,10 @@ describe('ASN RDAP', () => {
   it('returns null for a successful empty ASN response', async () => {
     expect(await queryRdapAsn(15169, async () => jsonResponse({}))).toBeNull();
   });
+
+  it('returns null for an ASN response with structurally empty entities', async () => {
+    expect(await queryRdapAsn(15169, async () => jsonResponse({ entities: [{}] }))).toBeNull();
+  });
 });
 
 describe('cached RDAP lookups', () => {

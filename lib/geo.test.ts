@@ -167,7 +167,7 @@ describe('createHostnameCache', () => {
     const resolve = vi.fn((key: string) => new Promise<string>((release) => {
       releases.set(key, release);
     }));
-    const cache = createHostnameCache(resolve, { ttlMs: 60_000, maxKeys: 1 }, () => 1000);
+    const cache = createHostnameCache(resolve, { ttlMs: 60_000, maxKeys: 1, maxPending: 2 }, () => 1000);
     const first = cache.get('a');
     const second = cache.get('b');
     releases.get('b')?.('b');
@@ -178,6 +178,30 @@ describe('createHostnameCache', () => {
     expect(resolve).toHaveBeenCalledTimes(2);
     releases.get('a')?.('a');
     await expect(first).resolves.toBe('a');
+  });
+
+  it('rejects new keys at the pending limit while deduplicating admitted keys', async () => {
+    const releases = new Map<string, (value: string) => void>();
+    const resolve = vi.fn((key: string) => new Promise<string>((release) => {
+      releases.set(key, release);
+    }));
+    const cache = createHostnameCache(
+      resolve,
+      { ttlMs: 60_000, maxKeys: 10, maxPending: 2 },
+      () => 1000,
+    );
+    const first = cache.get('a');
+    const second = cache.get('b');
+    const duplicate = cache.get('a');
+
+    expect(duplicate).toBe(first);
+    const rejected = Array.from({ length: 20 }, (_, index) => cache.get(`extra-${index}`));
+    await expect(Promise.all(rejected)).rejects.toThrow('too many pending lookups');
+    expect(resolve).toHaveBeenCalledTimes(2);
+
+    releases.get('a')?.('a');
+    releases.get('b')?.('b');
+    await expect(Promise.all([first, second])).resolves.toEqual(['a', 'b']);
   });
 
   it('removes rejected lookups so the next call retries', async () => {

@@ -139,7 +139,12 @@ interface CacheEntry<T> {
 
 export function createHostnameCache<T>(
   resolve: (key: string) => Promise<T>,
-  { ttlMs, maxKeys, failureTtlMs = 1_000 }: { ttlMs: number; maxKeys: number; failureTtlMs?: number },
+  {
+    ttlMs,
+    maxKeys,
+    maxPending = maxKeys,
+    failureTtlMs = 1_000,
+  }: { ttlMs: number; maxKeys: number; maxPending?: number; failureTtlMs?: number },
   now: () => number = Date.now,
 ): HostnameCache<T> {
   const cache = new Map<string, CacheEntry<T>>();
@@ -151,8 +156,9 @@ export function createHostnameCache<T>(
       if (inFlight) return inFlight;
       const hit = cache.get(key);
       if (hit && hit.expires > t) return Promise.resolve(hit.value as T);
+      if (pending.size >= maxPending) return Promise.reject(new Error('too many pending lookups'));
       const request = resolve(key).then((value) => {
-        pending.delete(key);
+        if (pending.get(key) === request) pending.delete(key);
         if (cache.has(key)) cache.delete(key);
         while (cache.size >= maxKeys) {
           const oldestKey = cache.keys().next().value;
