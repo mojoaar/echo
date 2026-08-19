@@ -19,4 +19,16 @@ describe('GET /api/ip', () => {
     expect(res.headers.get('content-type')).toBe('text/plain; charset=utf-8');
     expect(res.headers.get('cache-control')).toBe('no-store');
   });
+
+  it('returns a looked-up ip as plain text when ?ip= is given', async () => {
+    const res = await GET(new Request('http://localhost/api/ip?ip=8.8.8.8'));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/plain');
+    expect(await res.text()).toBe('8.8.8.8\n');
+  });
+
+  it('returns 400 for an invalid ?ip= value', async () => {
+    const res = await GET(new Request('http://localhost/api/ip?ip=not-an-ip'));
+    expect(res.status).toBe(400);
+  });
 });
