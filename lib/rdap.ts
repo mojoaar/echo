@@ -53,7 +53,7 @@ function vcardProps(entity: unknown): unknown[] {
 function vcardValue(entity: unknown, type: string): string | null {
   for (const raw of vcardProps(entity)) {
     const prop = Array.isArray(raw) ? (raw as unknown[]) : [];
-    if (prop[0] === type && typeof prop[3] === 'string') return prop[3] as string;
+    if (prop[0] === type && hasText(prop[3])) return (prop[3] as string).trim();
   }
   return null;
 }

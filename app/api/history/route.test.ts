@@ -60,6 +60,7 @@ describe('GET /api/history', () => {
     const count = vi.spyOn(db, 'countLookups').mockImplementation(() => {
       throw new Error('database unavailable');
     });
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     try {
       const res = await GET(new Request('http://localhost/api/history', {
         headers: { 'x-real-ip': '198.51.100.11' },
@@ -69,8 +70,17 @@ describe('GET /api/history', () => {
       expect(res.headers.get('access-control-allow-origin')).toBe('*');
       expect(res.headers.get('x-ratelimit-limit')).toBeTruthy();
       expect(await res.json()).toEqual({ error: 'internal server error', code: 'internal_error' });
+      expect(error).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(error.mock.calls[0]?.[0] as string)).toEqual({
+        category: 'database_read',
+        endpoint: '/api/history',
+        status: 500,
+        durationMs: expect.any(Number),
+      });
+      expect(error.mock.calls[0]?.[0]).not.toContain('database unavailable');
     } finally {
       count.mockRestore();
+      error.mockRestore();
     }
   });
 });

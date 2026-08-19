@@ -95,6 +95,18 @@ describe('queryRdap', () => {
     expect(await queryRdap('8.8.8.8', async () => jsonResponse({}))).toBeNull();
   });
 
+  it('ignores whitespace-only vCard values', () => {
+    expect(parseRdap({
+      entities: [
+        { roles: ['organization'], vcardArray: ['vcard', [['fn', {}, 'text', '  ']]] },
+        { roles: ['abuse'], vcardArray: ['vcard', [
+          ['email', {}, 'text', ' \t '],
+          ['tel', {}, 'text', '\n'],
+        ]] },
+      ],
+    })).toBeNull();
+  });
+
 });
 
 describe('ASN RDAP', () => {

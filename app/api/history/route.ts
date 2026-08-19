@@ -28,6 +28,7 @@ export async function GET(request: Request) {
     );
   }
   const now = Date.now();
+  const startedAt = Date.now();
   let body;
   try {
     body = {
@@ -36,6 +37,12 @@ export async function GET(request: Request) {
       topCountries: topCountryCodes(10),
     };
   } catch {
+    console.error(JSON.stringify({
+      category: 'database_read',
+      endpoint: '/api/history',
+      status: 500,
+      durationMs: Math.max(0, Date.now() - startedAt),
+    }));
     return apiError(
       500,
       'internal server error',

@@ -38,6 +38,7 @@ export async function GET(request: Request) {
     );
   }
   const now = Date.now();
+  const startedAt = Date.now();
   let body;
   try {
     body = {
@@ -48,6 +49,12 @@ export async function GET(request: Request) {
       daily: dailyCounts(now - 7 * 86_400_000, 7),
     };
   } catch {
+    console.error(JSON.stringify({
+      category: 'database_read',
+      endpoint: '/api/stats',
+      status: 500,
+      durationMs: Math.max(0, Date.now() - startedAt),
+    }));
     return apiError(500, 'internal server error', 'internal_error', { 'cache-control': 'no-store' });
   }
   return Response.json(body, { headers: { 'cache-control': 'no-store' } });

@@ -63,3 +63,45 @@ Preserved outside the commit as requested:
 - `next-env.d.ts`
 - `tsconfig.json`
 - untracked `test-results/`
+
+## Consolidated Final-Fix Re-Review
+
+Status: DONE
+
+### Findings Addressed
+
+1. `/api/history` and `/api/stats` now emit redacted structured `database_read` events when database reads fail. Events contain only category, endpoint, status, and duration. Stable 500 internal-error responses and existing no-store, CORS, and rate-limit headers remain unchanged. No IPs, tokens, exception messages, SQL, or payloads are logged.
+2. RDAP vCard values now trim meaningful strings and reject whitespace-only values. Abuse contacts and entities containing only whitespace normalize to `null`.
+
+### TDD Evidence
+
+#### RED
+
+Command:
+
+```text
+npx vitest run app/api/history/route.test.ts app/api/stats/route.test.ts lib/rdap.test.ts
+```
+
+Result: 3 expected regression failures. The history and stats read-error tests observed no operational log, and the RDAP whitespace-only test received an object containing whitespace values instead of `null`.
+
+#### GREEN
+
+Command:
+
+```text
+npx vitest run app/api/history/route.test.ts app/api/stats/route.test.ts lib/rdap.test.ts
+```
+
+Result: 3 test files passed, 28 tests passed.
+
+### Verification
+
+| Command | Result |
+| --- | --- |
+| Covering tests | 3 files passed, 28 tests passed |
+| `npm test` | 24 files passed, 196 tests passed |
+| `npm run lint` | Passed; `tsc --noEmit` exited 0 |
+| `git diff --check` | Passed |
+
+The test runner continues to print the pre-existing Vite `configLoader: 'native'` warning; it does not affect test or lint results.
