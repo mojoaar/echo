@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 let leafletPromise: Promise<void> | null = null;
+const LEAFLET_VERSION = '1.9.4';
+const LEAFLET_ORIGIN = 'https://unpkg.com';
 
 type Leaflet = {
   map: (el: HTMLElement, opts: Record<string, unknown>) => { setView: (c: [number, number], z: number) => unknown; remove: () => void };
@@ -22,9 +24,9 @@ function ensureLeaflet(): Promise<void> {
   leafletPromise ??= new Promise((resolve, reject) => {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    link.href = `${LEAFLET_ORIGIN}/leaflet@${LEAFLET_VERSION}/dist/leaflet.css`;
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.src = `${LEAFLET_ORIGIN}/leaflet@${LEAFLET_VERSION}/dist/leaflet.js`;
     let cssLoaded = false;
     let jsLoaded = false;
     const finish = () => {

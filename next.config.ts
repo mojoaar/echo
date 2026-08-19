@@ -10,16 +10,20 @@ function umamiOrigin(): string | null {
   }
 }
 
+const defaultUmamiOrigin = 'https://umami.johansen.foo';
+const themeInitializerHash = "'sha256-zdRxDmbSmq89PI2Aciu1hQ1Z9qNSlZ+05zkXpmQT6JQ='";
+
 const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: ['better-sqlite3'],
   async headers() {
     const scriptSources = [
       "'self'",
-      "'unsafe-inline'",
-      'https://unpkg.com',
-      umamiOrigin() ?? 'https://umami.johansen.foo',
+      themeInitializerHash,
+      'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+      umamiOrigin() ?? defaultUmamiOrigin,
     ];
+    const umami = umamiOrigin() ?? defaultUmamiOrigin;
     return [
       {
         source: '/:path*',
@@ -32,10 +36,10 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               `script-src ${scriptSources.join(' ')}`,
-              "style-src 'self' 'unsafe-inline' https://unpkg.com",
-              "img-src 'self' data: blob: https://*.basemaps.cartocdn.com",
+              "style-src 'self' 'unsafe-inline' https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+              "img-src 'self' https://a.basemaps.cartocdn.com https://b.basemaps.cartocdn.com https://c.basemaps.cartocdn.com https://d.basemaps.cartocdn.com",
               "font-src 'self' data:",
-              "connect-src 'self'",
+              `connect-src 'self' ${umami}`,
               "object-src 'none'",
               "base-uri 'self'",
               "frame-ancestors 'none'",
@@ -43,6 +47,8 @@ const nextConfig: NextConfig = {
             ].join('; '),
           },
           { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
         ],
       },
     ];

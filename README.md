@@ -159,7 +159,7 @@ docker compose up -d
 
 No checkout of the source is needed — the image is pulled from the GitHub Container Registry.
 
-The app listens on port `3100` (bound to all interfaces; keep the host firewall closed to direct access if the reverse proxy is the only intended entry). The lookup history persists in the `echo-data` volume. TLS terminates on your existing reverse proxy in front of the app. To pin a specific release instead of `latest`, set `ECHO_TAG` (for example `ECHO_TAG=v1.2.0` in the environment or a `.env` file next to the compose file).
+The app listens on port `3100` (intentionally bound to all interfaces; keep the host firewall closed to untrusted direct access if the reverse proxy is the only intended entry). The lookup history persists in the `echo-data` volume. TLS terminates on your existing reverse proxy in front of the app. To pin a specific release instead of `latest`, set `ECHO_TAG` (for example `ECHO_TAG=v1.2.0` in the environment or a `.env` file next to the compose file).
 
 Prebuilt images are published to GitHub Container Registry on every release:
 
@@ -175,6 +175,10 @@ docker run -d --name echo -p 3100:3000 \
 The default timezone is `Europe/Copenhagen`; set `TZ` to change it (for example `UTC`).
 
 The app trusts `x-real-ip` first, then `x-forwarded-for`. The reverse proxy must overwrite these headers with the verified client address. Treat the proxy and host firewall as the trusted boundary: do not expose the application port directly to untrusted networks.
+
+The external TLS proxy owns HTTPS-only deployment settings such as HSTS (`Strict-Transport-Security`); the container does not emit HSTS because it can also be reached over the LAN on its HTTP port. Configure HSTS at the proxy only after HTTPS is working for the intended hostnames. Keep the host firewall and NPM access policy aligned with the intended boundary: port `3100` is available for the selected LAN deployment, but must not be reachable from untrusted networks. NPM must overwrite client-supplied forwarding headers and preserve the app's response security headers; any NPM custom header rules that overwrite CSP, COOP, or CORP are part of the deployment security configuration and must be reviewed there.
+
+The app intentionally does not set `Cross-Origin-Embedder-Policy`: enabling cross-origin isolation would require additional compatibility work for the configured Umami, Leaflet, and CARTO resources. `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy` are set by the app without requiring that isolation.
 
 When you access the site from inside the same network it's hosted on, NAT-loopback rewrites your source to the gateway's private IP, so the site shows "You are on a private network" — that's expected. Visit from outside your LAN (e.g. mobile data) to see your public WAN IP.
 
