@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- WHOIS ownership lookup via RDAP, with a TTL cache and an on-demand button
+- Forward DNS lookup (A, AAAA, MX, NS, TXT, SOA records) via `/api/dns`
+- Plain-text arbitrary IP lookup via `/api/ip?ip=8.8.8.8`
+- Private owner-analytics endpoint `/api/stats`, guarded by a `STATS_TOKEN`
+
+### Changed
+
+- The public lookup feed and `/api/history` now return aggregates (totals and top countries) instead of raw visitor IPs, for privacy
+- Per-visitor rate limiting now applies to all public API endpoints
+
 ## [1.2.0] - 2026-08-18
 
 ### Added

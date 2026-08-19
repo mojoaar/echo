@@ -6,8 +6,9 @@ Yet another "what is my IP" service — but this one tells you what the internet
 
 - Server-side IP and geo lookup — no client-side calls to third-party services
 - Lookup any IP address with `?ip=` or query the API directly
-- IP history log stored in SQLite, exposed through `/api/history`
-- Per-visitor rate limiting on the JSON API
+- WHOIS ownership lookup (RDAP) and forward DNS records
+- Aggregate lookup stats (totals and top countries) for privacy
+- Per-visitor rate limiting on all public API endpoints
 - Light and dark themes with a manual toggle
 - Copy / copy-as-JSON buttons and a Leaflet map modal for coordinates
 - Self-hosted Umami analytics, enabled through environment variables
@@ -42,8 +43,9 @@ npm run lint           # typecheck (tsc --noEmit)
 | `APP_URL` | `https://echo.johansen.foo` | Public origin used in metadata and footer curl examples |
 | `ECHO_TAG` | `latest` | GHCR image tag to pull (e.g. `v1.2.0`) |
 | `TZ` | `Europe/Copenhagen` | Container timezone |
-| `RATE_LIMIT_MAX` | `30` | Max `/api/json` requests per visitor IP per window |
+| `RATE_LIMIT_MAX` | `30` | Max requests per visitor IP per window on the public API |
 | `RATE_LIMIT_WINDOW_MS` | `60000` | Rate-limit window length in milliseconds |
+| `STATS_TOKEN` | _(unset)_ | Optional secret token protecting `/api/stats`; endpoint is disabled when unset |
 | `UMAMI_SCRIPT_URL` | _(unset)_ | Umami script URL; when set together with `UMAMI_WEBSITE_ID`, the analytics script is injected |
 | `UMAMI_WEBSITE_ID` | _(unset)_ | Umami website id |
 
@@ -53,11 +55,14 @@ The following are set inside the official Docker image and are only needed when 
 
 ### `GET /api/ip`
 
-Returns the caller's IP address as plain text.
+Returns the caller's IP address as plain text. Provide `?ip=` to look up an arbitrary address as plain text instead.
 
 ```
 $ curl https://echo.johansen.foo/api/ip
 203.0.113.7
+
+$ curl https://echo.johansen.foo/api/ip?ip=8.8.8.8
+8.8.8.8
 ```
 
 ### `GET /api/json`
@@ -87,9 +92,31 @@ $ curl https://echo.johansen.foo/api/json?ip=8.8.8.8
 }
 ```
 
-### `GET /api/history?limit=20`
+### `GET /api/whois?ip=8.8.8.8`
 
-Returns the most recent lookups, newest first. `limit` is clamped to `1..100` and defaults to `20`.
+Returns WHOIS ownership data for an IP address via [RDAP](https://en.wikipedia.org/wiki/Registration_Data_Access_Protocol), routed automatically to the authoritative regional registry. Includes the network handle, netblock start/end, assigned organization and registrant, abuse contact, and CIDR block. Same CORS and rate-limit headers as `/api/json`.
+
+### `GET /api/dns?name=johansen.foo`
+
+Resolves forward DNS records for a hostname, returning `a`, `aaaa`, `mx`, `ns`, `txt`, and `soa` arrays. Same CORS and rate-limit headers.
+
+### `GET /api/history`
+
+Returns aggregate lookup statistics instead of raw addresses, to protect visitor privacy:
+
+```json
+{
+  "total": 1234,
+  "last24h": 56,
+  "topCountries": [{ "iso": "US", "count": 320 }]
+}
+```
+
+Same CORS and rate-limit headers. This is a breaking change from the previous raw list; full per-IP history remains available privately via `/api/stats`.
+
+### `GET /api/stats?token=SECRET`
+
+Private owner-analytics endpoint. Requires the `STATS_TOKEN` environment variable; requests must pass the matching value via `?token=` or an `Authorization: Bearer SECRET` header. Returns totals, last-24h count, top countries, top IPs, and a per-day breakdown. Returns `404` when `STATS_TOKEN` is unset or the token is wrong, and is not rate-limited.
 
 ## Deployment
 
