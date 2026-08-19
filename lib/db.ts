@@ -30,15 +30,20 @@ function pruneIfDue(instance: Database.Database, nowMs: number): void {
   if (nowMs - lastPrunedAt >= PRUNE_INTERVAL_MS) pruneWithDatabase(instance, nowMs);
 }
 
+function openDb(path: string): Database.Database {
+  const instance = new Database(path);
+  instance.pragma('journal_mode = WAL');
+  instance.exec(schemaSql());
+  db = instance;
+  return instance;
+}
+
 export function initDb(path = process.env.DB_PATH ?? 'echo.db'): Database.Database {
   if (db) {
     pruneIfDue(db, Date.now());
     return db;
   }
-  const instance = new Database(path);
-  instance.pragma('journal_mode = WAL');
-  instance.exec(schemaSql());
-  db = instance;
+  const instance = openDb(path);
   pruneWithDatabase(instance, Date.now());
   return instance;
 }
@@ -62,7 +67,7 @@ export function closeDb(): void {
 }
 
 export function pruneOldLookups(nowMs = Date.now()): number {
-  return pruneWithDatabase(db ?? initDb(), nowMs);
+  return pruneWithDatabase(db ?? openDb(process.env.DB_PATH ?? 'echo.db'), nowMs);
 }
 
 export function getRetentionDays(): number {

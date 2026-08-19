@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Database from 'better-sqlite3';
 import {
   initDb,
   closeDb,
@@ -152,6 +153,33 @@ describe('sqlite lookup log', () => {
       expect(instance.prepare('SELECT ip FROM lookups WHERE ip IN (?, ?) ORDER BY ip').all('203.0.113.10', '203.0.113.11')).toEqual([
         { ip: '203.0.113.10' },
       ]);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('uses the supplied timestamp without initialization pruning first', () => {
+    const currentTime = Date.now();
+    process.env.LOOKUP_RETENTION_DAYS = '1';
+    const suppliedNow = currentTime - 2 * 86_400_000;
+    const cutoff = suppliedNow - 86_400_000;
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(currentTime - 3_600_001);
+    try {
+      process.env.DB_PATH = dbPath;
+      closeDb();
+      const instance = initDb(dbPath);
+      instance.prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run('203.0.113.20', 'US', cutoff);
+      instance.prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run('203.0.113.21', 'US', cutoff - 1);
+      closeDb();
+
+      clock.mockReturnValue(currentTime);
+      expect(pruneOldLookups(suppliedNow)).toBe(1);
+
+      const verificationDb = new Database(dbPath);
+      expect(verificationDb.prepare('SELECT ip FROM lookups WHERE ip IN (?, ?) ORDER BY ip').all('203.0.113.20', '203.0.113.21')).toEqual([
+        { ip: '203.0.113.20' },
+      ]);
+      verificationDb.close();
     } finally {
       clock.mockRestore();
     }
