@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { DnsRecords } from '@/lib/dns';
+import { isDnsResponse } from '@/lib/guards';
 
 type Group = { type: string; values: string[] };
 
@@ -41,7 +42,12 @@ export default function DnsSection() {
         return;
       }
       const body = await res.json();
-      setResult({ name: body.name, records: body.records as DnsRecords });
+      if (!isDnsResponse(body)) {
+        setResult(null);
+        setError('Could not resolve DNS records.');
+        return;
+      }
+      setResult(body);
     } catch {
       setError('Could not resolve DNS records.');
     } finally {

@@ -1,8 +1,10 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { initDb, closeDb, insertLookup } from '@/lib/db';
+import * as db from '@/lib/db';
+import { resetRateLimiter } from '@/lib/ratelimit';
 import { GET } from './route';
 
 describe('GET /api/stats', () => {
@@ -15,6 +17,7 @@ describe('GET /api/stats', () => {
 
   afterAll(() => {
     delete process.env.STATS_TOKEN;
+    resetRateLimiter();
     closeDb();
   });
 
@@ -28,12 +31,49 @@ describe('GET /api/stats', () => {
     expect(await res.json()).toEqual({ error: 'not found', code: 'not_found' });
   });
 
-  it('returns 404 for a missing or wrong token', async () => {
+  it('returns the same 404 for missing and wrong credentials', async () => {
     process.env.STATS_TOKEN = 'secret-value';
     const missing = await GET(new Request('http://localhost/api/stats'));
     expect(missing.status).toBe(404);
+    expect(await missing.json()).toEqual({ error: 'not found', code: 'not_found' });
     const wrong = await GET(new Request('http://localhost/api/stats?token=wrong'));
     expect(wrong.status).toBe(404);
+    expect(await wrong.json()).toEqual({ error: 'not found', code: 'not_found' });
+  });
+
+  it('throttles invalid credentials before querying the database', async () => {
+    const originalMax = process.env.RATE_LIMIT_STATS_AUTH_MAX;
+    process.env.STATS_TOKEN = 'secret-value';
+    process.env.RATE_LIMIT_STATS_AUTH_MAX = '1';
+    resetRateLimiter();
+    const countLookups = vi.spyOn(db, 'countLookups');
+    const countSince = vi.spyOn(db, 'countSince');
+    const topCountryCodes = vi.spyOn(db, 'topCountryCodes');
+    const topIps = vi.spyOn(db, 'topIps');
+    const dailyCounts = vi.spyOn(db, 'dailyCounts');
+    try {
+      const request = () =>
+        new Request('http://localhost/api/stats?token=wrong', {
+          headers: { 'x-real-ip': '203.0.113.7' },
+        });
+      const first = await GET(request());
+      const second = await GET(request());
+      expect(first.status).toBe(404);
+      expect(second.status).toBe(429);
+      expect(countLookups).not.toHaveBeenCalled();
+      expect(countSince).not.toHaveBeenCalled();
+      expect(topCountryCodes).not.toHaveBeenCalled();
+      expect(topIps).not.toHaveBeenCalled();
+      expect(dailyCounts).not.toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+      resetRateLimiter();
+      if (originalMax === undefined) {
+        delete process.env.RATE_LIMIT_STATS_AUTH_MAX;
+      } else {
+        process.env.RATE_LIMIT_STATS_AUTH_MAX = originalMax;
+      }
+    }
   });
 
   it('returns aggregate stats for a valid query token', async () => {
@@ -56,6 +96,16 @@ describe('GET /api/stats', () => {
       new Request('http://localhost/api/stats', {
         headers: { authorization: 'Bearer secret-value' },
       })
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it('prefers a valid bearer token over an invalid query token', async () => {
+    process.env.STATS_TOKEN = 'secret-value';
+    const res = await GET(
+      new Request('http://localhost/api/stats?token=wrong', {
+        headers: { authorization: 'Bearer secret-value' },
+      }),
     );
     expect(res.status).toBe(200);
   });

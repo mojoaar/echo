@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { RdapInfo } from '@/lib/rdap';
+import { isRdapResponse } from '@/lib/guards';
 
 export default function WhoisSection({ ip }: { ip: string }) {
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,13 @@ export default function WhoisSection({ ip }: { ip: string }) {
         setData(undefined);
         return;
       }
-      setData((await res.json()) as RdapInfo);
+      const body = await res.json();
+      if (!isRdapResponse(body)) {
+        setError('Could not load WHOIS data.');
+        setData(undefined);
+        return;
+      }
+      setData(body);
     } catch {
       setError('Could not load WHOIS data.');
       setData(undefined);

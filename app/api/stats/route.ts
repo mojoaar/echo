@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   const queryToken = url.searchParams.get('token');
   const auth = request.headers.get('authorization');
   const bearer = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
-  const provided = queryToken ?? bearer;
+  const provided = bearer ?? queryToken;
   if (!expected || !provided || !safeEqual(provided, expected)) {
     const key = extractVisitorIp(request.headers) ?? 'anonymous';
     const rate = getRateLimiter('stats-auth').allow(key);

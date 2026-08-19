@@ -102,11 +102,11 @@ $ curl https://echo.johansen.foo/api/json?ip=8.8.8.8
 
 ### `GET /api/whois?ip=8.8.8.8`
 
-Returns WHOIS ownership data for an IP address via [RDAP](https://en.wikipedia.org/wiki/Registration_Data_Access_Protocol), routed automatically to the authoritative regional registry. Includes the network handle, netblock start/end, assigned organization and registrant, abuse contact, and CIDR block. Same CORS and rate-limit headers as `/api/json`.
+Returns WHOIS ownership data for an IP address via [RDAP](https://en.wikipedia.org/wiki/Registration_Data_Access_Protocol), routed automatically to the authoritative regional registry. Includes the network handle, netblock start/end, assigned organization and registrant, abuse contact, and CIDR block. Same CORS and rate-limit headers as `/api/json`; malformed upstream responses are rejected before display.
 
 ### `GET /api/dns?name=johansen.foo`
 
-Resolves forward DNS records for a hostname, returning `a`, `aaaa`, `mx`, `ns`, `txt`, and `soa` arrays. Same CORS and rate-limit headers.
+Resolves forward DNS records for a hostname, returning `a`, `aaaa`, `mx`, `ns`, `txt`, and `soa` arrays. Same CORS and rate-limit headers; malformed responses are rejected before display.
 
 ### `GET /api/history`
 
