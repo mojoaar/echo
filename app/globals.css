@@ -357,6 +357,55 @@ code {
   white-space: nowrap;
 }
 
+.whois {
+  margin-top: 40px;
+}
+
+.whois-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.whois-head .section-title {
+  margin-bottom: 0;
+}
+
+.whois-hint {
+  font-size: 0.85rem;
+  margin-top: 6px;
+}
+
+.whois-body {
+  padding: 6px 0;
+}
+
+.whois-body .feed-row {
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.whois-body .feed-row:last-child {
+  border-bottom: none;
+}
+
+.whois-label {
+  width: 130px;
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+}
+
+.whois-value {
+  flex: 1;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
 footer {
   margin-top: 48px;
   text-align: center;

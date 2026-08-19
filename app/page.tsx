@@ -9,6 +9,7 @@ import RefreshButton from '@/components/ui/RefreshButton';
 import LookupForm from '@/components/ui/LookupForm';
 import { MapTrigger } from '@/components/ui/MapModal';
 import RecentFeed from '@/components/ui/RecentFeed';
+import WhoisSection from '@/components/ui/WhoisSection';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import TypeOnText from '@/components/ui/TypeOnText';
 import { getVersion } from '@/lib/version';
@@ -184,6 +185,8 @@ export default async function Page({
           />
           <InfoCard label="Hostname" value={info?.hostname ?? null} />
         </section>
+
+        {info && !info.isPrivate ? <WhoisSection ip={info.ip} /> : null}
 
         <RecentFeed entries={recent} />
       </main>
