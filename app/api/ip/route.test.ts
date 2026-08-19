@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GET } from './route';
+import { resetRateLimiter } from '@/lib/ratelimit';
 
 describe('GET /api/ip', () => {
   it('returns the visitor ip as plain text', async () => {
@@ -31,4 +32,24 @@ describe('GET /api/ip', () => {
     const res = await GET(new Request('http://localhost/api/ip?ip=not-an-ip'));
     expect(res.status).toBe(400);
   });
+
+  it('rate limits requests from the same visitor', async () => {
+    process.env.RATE_LIMIT_MAX = '1';
+    resetRateLimiter();
+    const first = await GET(
+      new Request('http://localhost/api/ip', { headers: { 'x-forwarded-for': '8.8.8.8' } }),
+    );
+    const second = await GET(
+      new Request('http://localhost/api/ip', { headers: { 'x-forwarded-for': '8.8.8.8' } }),
+    );
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(429);
+    expect(second.headers.get('content-type')).toContain('text/plain');
+    expect(second.headers.get('retry-after')).toBeTruthy();
+  });
+});
+
+afterEach(() => {
+  delete process.env.RATE_LIMIT_MAX;
+  resetRateLimiter();
 });
