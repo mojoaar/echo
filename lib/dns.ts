@@ -149,7 +149,10 @@ function isSafeAddress(value: string): boolean {
   if (groups[0] === 0x2001 && groups[1] === 0x0db8) return false;
   if (groups[0] === 0x2001 && groups[1] === 0x0002 && groups[2] === 0) return false;
   if (groups[0] === 0x2001 && (groups[1] & 0xfff0) === 0x0010) return false;
-  if (groups[0] === 0 && groups[1] === 0 && groups[2] === 0 && groups[3] === 0xffff) return false;
+  if (groups[0] === 0x2001 && (groups[1] & 0xfff0) === 0x0020) return false;
+  if ((groups[0] & 0xfff0) === 0x3ff0) return false;
+  if (groups[0] === 0x0100 && groups.slice(1, 4).every((group) => group === 0)) return false;
+  if (groups.slice(0, 5).every((group) => group === 0) && groups[5] === 0xffff) return false;
   return true;
 }
 

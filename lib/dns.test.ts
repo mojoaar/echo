@@ -96,14 +96,20 @@ describe('resolveRecords', () => {
           'fc00::1',
           'fe80::1',
           '0:0:0:0:0:0:0:1',
+          '0:0:0:0:0:ffff:c0a8:0101',
+          '0:0:0:0:0:ffff:c000:0201',
+          '100::1',
+          '2001:20::1',
+          '3fff::1',
           '2001:0db8:0000:0000:0000:0000:0000:0001',
           'ff00:0000:0000:0000:0000:0000:0000:0001',
           '2606:4700:4700::1111',
+          '2001:4860:4860::8888',
         ],
       }),
     );
     expect(result.records.a).toEqual(['87.104.91.82']);
-    expect(result.records.aaaa).toEqual(['2606:4700:4700::1111']);
+    expect(result.records.aaaa).toEqual(['2606:4700:4700::1111', '2001:4860:4860::8888']);
   });
 
   it('marks results partial when a resolver family fails unexpectedly', async () => {
