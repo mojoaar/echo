@@ -80,13 +80,22 @@ function envNumber(name: string, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function envPositiveInteger(name: string, fallback: number): number {
+  const raw = process.env[name];
+  const parsed = raw ? Number(raw) : Number.NaN;
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 export function getRateLimiter(name: RateLimiterName): RateLimiter {
   const existing = limiters.get(name);
   if (existing) return existing;
   const envName = name.toUpperCase().replace('-', '_');
   const defaults = limiterDefaults[name];
   const limiter = createRateLimiter({
-    max: envNumber(`RATE_LIMIT_${envName}_MAX`, envNumber('RATE_LIMIT_MAX', defaults.max)),
+    max: envPositiveInteger(
+      `RATE_LIMIT_${envName}_MAX`,
+      envPositiveInteger('RATE_LIMIT_MAX', defaults.max),
+    ),
     windowMs: envNumber(
       `RATE_LIMIT_${envName}_WINDOW_MS`,
       envNumber('RATE_LIMIT_WINDOW_MS', defaults.windowMs),

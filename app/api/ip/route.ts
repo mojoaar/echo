@@ -11,12 +11,15 @@ const baseHeaders: Record<string, string> = {
 };
 
 export async function GET(request: Request) {
+  const url = new URL(request.url);
+  if (url.searchParams.getAll('ip').length > 1) {
+    return apiError(400, 'invalid ip address', 'invalid_input', baseHeaders);
+  }
   const key = extractVisitorIp(request.headers) ?? 'anonymous';
   const rate = getRateLimiter('ip').allow(key);
   if (!rate.allowed) {
     return apiError(429, 'rate limit exceeded', 'rate_limited', withRateHeaders(baseHeaders, rate));
   }
-  const url = new URL(request.url);
   const raw = url.searchParams.get('ip')?.trim() ?? null;
   let ip: string | null;
   if (raw) {

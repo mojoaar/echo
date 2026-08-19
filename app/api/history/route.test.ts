@@ -1,10 +1,11 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GET } from './route';
 import { closeDb, initDb, insertLookup } from '@/lib/db';
 import { resetRateLimiter } from '@/lib/ratelimit';
+import * as db from '@/lib/db';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -53,5 +54,23 @@ describe('GET /api/history', () => {
     expect(await second.json()).toEqual({ error: 'rate limit exceeded', code: 'rate_limited' });
     delete process.env.RATE_LIMIT_MAX;
     resetRateLimiter();
+  });
+
+  it('returns a stable no-store internal error when database reads fail', async () => {
+    const count = vi.spyOn(db, 'countLookups').mockImplementation(() => {
+      throw new Error('database unavailable');
+    });
+    try {
+      const res = await GET(new Request('http://localhost/api/history', {
+        headers: { 'x-real-ip': '198.51.100.11' },
+      }));
+      expect(res.status).toBe(500);
+      expect(res.headers.get('cache-control')).toBe('no-store');
+      expect(res.headers.get('access-control-allow-origin')).toBe('*');
+      expect(res.headers.get('x-ratelimit-limit')).toBeTruthy();
+      expect(await res.json()).toEqual({ error: 'internal server error', code: 'internal_error' });
+    } finally {
+      count.mockRestore();
+    }
   });
 });

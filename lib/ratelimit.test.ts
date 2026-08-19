@@ -116,6 +116,14 @@ describe('getRateLimiter', () => {
     expect(limiter.allow('key').retryAfter).toBe(5678);
   });
 
+  it('accepts only positive integer maxima from the environment', () => {
+    process.env.RATE_LIMIT_JSON_MAX = '1.5';
+    process.env.RATE_LIMIT_MAX = '2.5';
+    const limiter = getRateLimiter('json');
+
+    expect(limiter.allow('key').limit).toBe(30);
+  });
+
   it('keeps endpoint-specific Compose variables empty unless configured', () => {
     const compose = readFileSync(new URL('../docker-compose.yml', import.meta.url), 'utf8');
     expect(compose).toContain('RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-}');

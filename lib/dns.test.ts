@@ -182,6 +182,26 @@ describe('resolveRecords', () => {
     expect(second.cache).toBe('hit');
   });
 
+  it('keeps active pending work admitted and rejects new keys at cache pressure', async () => {
+    process.env.DNS_CACHE_MAX = '1';
+    let release!: () => void;
+    const pending = new Promise<[]>((resolve) => {
+      release = () => resolve([]);
+    });
+    const resolver: DnsResolver = {
+      resolve: () => pending,
+    };
+
+    const first = resolveRecords('pending.example.com', resolver);
+    const duplicate = resolveRecords('pending.example.com', resolver);
+    const rejected = resolveRecords('other.example.com', resolver);
+
+    await expect(rejected).rejects.toMatchObject({ code: 'upstream_unavailable' });
+    release();
+    await expect(first).resolves.toMatchObject({ cache: 'miss' });
+    await expect(duplicate).resolves.toMatchObject({ cache: 'hit' });
+  });
+
   it('does not exceed configured resolver concurrency', async () => {
     process.env.DNS_MAX_CONCURRENCY = '2';
     let active = 0;

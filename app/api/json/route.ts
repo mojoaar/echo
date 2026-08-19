@@ -20,6 +20,9 @@ export async function OPTIONS() {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  if (url.searchParams.getAll('ip').length > 1) {
+    return apiError(400, 'invalid ip address', 'invalid_input', corsHeaders);
+  }
   const raw = url.searchParams.get('ip')?.trim() ?? null;
   if (raw && !isValidIp(normalizeIp(raw))) {
     return apiError(400, 'invalid ip address', 'invalid_input', corsHeaders);
@@ -39,8 +42,16 @@ export async function GET(request: Request) {
     );
   }
   const info = await lookupInfo(ip);
+  const startedAt = Date.now();
   try {
     insertLookup(info.ip, info.country);
-  } catch {}
+  } catch {
+    console.error(JSON.stringify({
+      category: 'database_write',
+      endpoint: '/api/json',
+      status: 'error',
+      durationMs: Math.max(0, Date.now() - startedAt),
+    }));
+  }
   return Response.json(info, { headers: withRateHeaders(corsHeaders, rate) });
 }

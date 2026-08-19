@@ -22,9 +22,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run fetch:mmdb
       - run: npm run lint
       - run: npm test
-      - run: npm run fetch:mmdb
       - run: npm run build
 
   coverage:
@@ -37,6 +37,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run fetch:mmdb
       - run: npm run coverage
 
   playwright:
@@ -49,6 +50,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run fetch:mmdb
       - run: npx playwright install --with-deps chromium webkit
       - run: npx playwright test
       - if: always()

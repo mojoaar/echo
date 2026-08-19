@@ -56,6 +56,12 @@ describe('GET /api/whois', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects repeated ?ip= values with stable invalid input', async () => {
+    const res = await GET(new Request('http://localhost/api/whois?ip=8.8.8.8&ip=1.1.1.1'));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'invalid ip address', code: 'invalid_input' });
+  });
+
   it('answers OPTIONS with CORS headers', async () => {
     const res = await OPTIONS();
     expect(res.status).toBe(204);

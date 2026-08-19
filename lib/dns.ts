@@ -55,15 +55,17 @@ const DISALLOWED_SUFFIXES = [
 ];
 
 type RecordsKey = keyof DnsRecords;
-type CacheEntry = {
-  promise: Promise<DnsLookupResult>;
+type SettledCacheEntry = {
+  result: DnsLookupResult;
   expiresAt: number;
 };
 
-const cache = new Map<string, CacheEntry>();
+const settledCache = new Map<string, SettledCacheEntry>();
+const pendingCache = new Map<string, Promise<DnsLookupResult>>();
 
 export function clearDnsCache(): void {
-  cache.clear();
+  settledCache.clear();
+  pendingCache.clear();
 }
 
 function envNumber(name: string, fallback: number, minimum: number): number {
@@ -253,28 +255,38 @@ export async function resolveRecords(
   const normalized = name.toLowerCase();
   if (!isPublicHostname(normalized)) throw new DnsError('invalid_input');
   const now = Date.now();
-  const existing = cache.get(normalized);
+  const pending = pendingCache.get(normalized);
+  if (pending) {
+    return pending.then((result) => ({ ...result, cache: 'hit' }));
+  }
+  const existing = settledCache.get(normalized);
   if (existing && existing.expiresAt > now) {
-    return existing.promise.then((result) => ({ ...result, cache: 'hit' }));
+    return Promise.resolve({ ...existing.result, cache: 'hit' });
   }
-  if (existing) cache.delete(normalized);
+  if (existing) settledCache.delete(normalized);
   const settings = config();
-  while (cache.size >= settings.cacheMax) {
-    const oldest = cache.keys().next().value;
-    if (oldest === undefined) break;
-    cache.delete(oldest);
+  if (pendingCache.size >= settings.cacheMax) {
+    throw new DnsError('upstream_unavailable');
   }
-  const entry = { promise: Promise.resolve(null as unknown as DnsLookupResult), expiresAt: Number.POSITIVE_INFINITY };
-  entry.promise = resolveUncached(normalized, resolver).then(
+  const promise = resolveUncached(normalized, resolver).then(
     (result) => {
-      entry.expiresAt = Date.now() + (result.partial ? settings.failureTtlMs : settings.cacheTtlMs);
+      if (pendingCache.get(normalized) === promise) pendingCache.delete(normalized);
+      while (settledCache.size >= settings.cacheMax) {
+        const oldest = settledCache.keys().next().value;
+        if (oldest === undefined) break;
+        settledCache.delete(oldest);
+      }
+      settledCache.set(normalized, {
+        result,
+        expiresAt: Date.now() + (result.partial ? settings.failureTtlMs : settings.cacheTtlMs),
+      });
       return result;
     },
     (error) => {
-      entry.expiresAt = Date.now() + settings.failureTtlMs;
+      if (pendingCache.get(normalized) === promise) pendingCache.delete(normalized);
       throw error;
     },
   );
-  cache.set(normalized, entry);
-  return entry.promise;
+  pendingCache.set(normalized, promise);
+  return promise;
 }

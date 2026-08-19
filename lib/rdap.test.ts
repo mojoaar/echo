@@ -89,6 +89,12 @@ describe('queryRdap', () => {
     expect(info).toBeNull();
   });
 
+  it('returns null for a successful object with no meaningful IP data', async () => {
+    expect(parseRdap({})).toBeNull();
+    expect(parseRdap({ handle: '', name: '  ', country: '' })).toBeNull();
+    expect(await queryRdap('8.8.8.8', async () => jsonResponse({}))).toBeNull();
+  });
+
 });
 
 describe('ASN RDAP', () => {
@@ -228,5 +234,15 @@ describe('parseRdap', () => {
     });
     expect(parsed?.organization).toBe('ACME Corp');
     expect(parsed?.registrant).toBe('Jane Doe');
+  });
+
+  it('prefers an organization role even when registrant appears first', () => {
+    const parsed = parseRdap({
+      entities: [
+        { roles: ['registrant'], vcardArray: ['vcard', [['fn', {}, 'text', 'Jane Doe']]] },
+        { roles: ['organization'], vcardArray: ['vcard', [['fn', {}, 'text', 'ACME Corp']]] },
+      ],
+    });
+    expect(parsed?.organization).toBe('ACME Corp');
   });
 });

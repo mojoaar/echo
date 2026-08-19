@@ -28,10 +28,20 @@ export async function GET(request: Request) {
     );
   }
   const now = Date.now();
-  const body = {
-    total: countLookups(),
-    last24h: countSince(now - 86_400_000),
-    topCountries: topCountryCodes(10),
-  };
+  let body;
+  try {
+    body = {
+      total: countLookups(),
+      last24h: countSince(now - 86_400_000),
+      topCountries: topCountryCodes(10),
+    };
+  } catch {
+    return apiError(
+      500,
+      'internal server error',
+      'internal_error',
+      withRateHeaders(corsHeaders, rate),
+    );
+  }
   return Response.json(body, { headers: withRateHeaders(corsHeaders, rate) });
 }

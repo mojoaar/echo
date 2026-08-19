@@ -21,6 +21,9 @@ export async function OPTIONS() {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  if (url.searchParams.getAll('ip').length > 1) {
+    return apiError(400, 'invalid ip address', 'invalid_input', corsHeaders);
+  }
   const raw = url.searchParams.get('ip')?.trim() ?? null;
   if (raw && !isValidIp(normalizeIp(raw))) {
     return apiError(400, 'invalid ip address', 'invalid_input', corsHeaders);

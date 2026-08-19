@@ -38,12 +38,17 @@ export async function GET(request: Request) {
     );
   }
   const now = Date.now();
-  const body = {
-    total: countLookups(),
-    last24h: countSince(now - 86_400_000),
-    topCountries: topCountryCodes(10),
-    topIps: topIps(10),
-    daily: dailyCounts(now - 7 * 86_400_000, 7),
-  };
+  let body;
+  try {
+    body = {
+      total: countLookups(),
+      last24h: countSince(now - 86_400_000),
+      topCountries: topCountryCodes(10),
+      topIps: topIps(10),
+      daily: dailyCounts(now - 7 * 86_400_000, 7),
+    };
+  } catch {
+    return apiError(500, 'internal server error', 'internal_error', { 'cache-control': 'no-store' });
+  }
   return Response.json(body, { headers: { 'cache-control': 'no-store' } });
 }

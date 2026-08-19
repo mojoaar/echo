@@ -190,6 +190,8 @@ The default timezone is `Europe/Copenhagen`; set `TZ` to change it (for example 
 
 The app trusts `x-real-ip` first, then `x-forwarded-for`. The reverse proxy must overwrite these headers with the verified client address. Treat the proxy and host firewall as the trusted boundary: do not expose the application port directly to untrusted networks.
 
+If neither trusted proxy header is present, the application uses the shared anonymous rate-limit bucket rather than treating each request as a separate visitor.
+
 ### Connectivity probe deployment
 
 The optional connectivity diagnostic requires two separate public probe hosts: one hostname with an A record only for `CONNECTIVITY_IPV4_URL`, and another hostname with an AAAA record only for `CONNECTIVITY_IPV6_URL`. Each URL should serve a lightweight successful GET response with CORS enabled for the echo site origin. The response must be static or otherwise side-effect-free: probe requests must not write the lookup database, call public lookup APIs, or consume any echo rate-limit bucket. The diagnostic measures browser reachability to each address family and does not reveal or replace the server-recorded visitor IP.

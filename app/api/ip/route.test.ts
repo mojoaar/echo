@@ -34,6 +34,12 @@ describe('GET /api/ip', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects repeated ?ip= values with stable invalid input', async () => {
+    const res = await GET(new Request('http://localhost/api/ip?ip=8.8.8.8&ip=1.1.1.1'));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'invalid ip address', code: 'invalid_input' });
+  });
+
   it('rate limits requests from the same visitor', async () => {
     process.env.RATE_LIMIT_MAX = '1';
     resetRateLimiter();

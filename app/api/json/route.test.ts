@@ -1,10 +1,11 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GET, OPTIONS } from './route';
 import { initDb, closeDb } from '@/lib/db';
 import { resetRateLimiter } from '@/lib/ratelimit';
+import * as db from '@/lib/db';
 
 describe('GET /api/json', () => {
   beforeAll(() => {
@@ -40,6 +41,29 @@ describe('GET /api/json', () => {
   it('rejects invalid ip values with 400', async () => {
     const res = await GET(new Request('http://localhost/api/json?ip=not-an-ip'));
     expect(res.status).toBe(400);
+  });
+
+  it('rejects repeated ?ip= values with stable invalid input', async () => {
+    const res = await GET(new Request('http://localhost/api/json?ip=8.8.8.8&ip=1.1.1.1'));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'invalid ip address', code: 'invalid_input' });
+  });
+
+  it('logs redacted structured events when inserting the lookup fails', async () => {
+    const insert = vi.spyOn(db, 'insertLookup').mockImplementation(() => {
+      throw new Error('secret-ip 8.8.8.8 payload=do-not-log');
+    });
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      const res = await GET(new Request('http://localhost/api/json?ip=8.8.8.8'));
+      expect(res.status).toBe(200);
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('"category":"database_write"'));
+      expect(error.mock.calls[0]?.[0]).not.toContain('8.8.8.8');
+      expect(error.mock.calls[0]?.[0]).not.toContain('do-not-log');
+    } finally {
+      insert.mockRestore();
+      error.mockRestore();
+    }
   });
 
   it('answers OPTIONS preflight with CORS headers', async () => {

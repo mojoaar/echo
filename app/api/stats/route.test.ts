@@ -103,6 +103,24 @@ describe('GET /api/stats', () => {
     expect(res.status).toBe(200);
   });
 
+  it('returns a stable no-store internal error when authenticated database reads fail', async () => {
+    process.env.STATS_TOKEN = 'secret-value';
+    const count = vi.spyOn(db, 'countLookups').mockImplementation(() => {
+      throw new Error('database unavailable');
+    });
+    try {
+      const res = await GET(new Request('http://localhost/api/stats', {
+        headers: { authorization: 'Bearer secret-value', 'x-real-ip': '198.51.100.12' },
+      }));
+      expect(res.status).toBe(500);
+      expect(res.headers.get('cache-control')).toBe('no-store');
+      expect(res.headers.get('x-ratelimit-limit')).toBeNull();
+      expect(await res.json()).toEqual({ error: 'internal server error', code: 'internal_error' });
+    } finally {
+      count.mockRestore();
+    }
+  });
+
   it('prefers a valid bearer token over an invalid query token', async () => {
     process.env.STATS_TOKEN = 'secret-value';
     const res = await GET(

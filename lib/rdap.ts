@@ -37,7 +37,7 @@ const RDAP_MAX_KEYS = 500;
 type AnyRecord = Record<string, unknown>;
 
 function str(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
+  return hasText(value) ? value as string : null;
 }
 
 function hasText(value: unknown): boolean {
@@ -67,10 +67,12 @@ function firstEntityFn(
   entities: unknown[],
   roles: string[],
 ): string | null {
-  for (const entity of entities) {
-    if (roles.some((role) => entityRoles(entity).includes(role))) {
-      const fn = vcardValue(entity, 'fn');
-      if (fn) return fn;
+  for (const role of roles) {
+    for (const entity of entities) {
+      if (entityRoles(entity).includes(role)) {
+        const fn = vcardValue(entity, 'fn');
+        if (fn) return fn;
+      }
     }
   }
   return null;
@@ -105,7 +107,7 @@ export function parseRdap(data: unknown): RdapInfo | null {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
   const rec = data as AnyRecord;
   const entities = Array.isArray(rec.entities) ? (rec.entities as unknown[]) : [];
-  return {
+  const result = {
     handle: str(rec.handle),
     name: str(rec.name),
     startAddress: str(rec.startAddress),
@@ -116,6 +118,7 @@ export function parseRdap(data: unknown): RdapInfo | null {
     registrant: firstEntityFn(entities, ['registrant']),
     abuse: abuseContact(entities),
   };
+  return Object.values(result).some((value) => value !== null) ? result : null;
 }
 
 export function parseRdapAsn(data: unknown): RdapAsnInfo | null {
