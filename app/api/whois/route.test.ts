@@ -86,5 +86,6 @@ describe('GET /api/whois rate limiting', () => {
     const blocked = await GET(req());
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get('retry-after')).toMatch(/^\d+$/);
+    expect(await blocked.json()).toEqual({ error: 'rate limit exceeded', code: 'rate_limited' });
   });
 });

@@ -1,6 +1,7 @@
 import { extractVisitorIp, normalizeIp } from '@/lib/ip';
 import { isValidIp } from '@/lib/validate';
 import { getRateLimiter } from '@/lib/ratelimit';
+import { apiError, withRateHeaders } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,12 +12,9 @@ const baseHeaders: Record<string, string> = {
 
 export async function GET(request: Request) {
   const key = extractVisitorIp(request.headers) ?? 'anonymous';
-  const rate = getRateLimiter().allow(key);
+  const rate = getRateLimiter('ip').allow(key);
   if (!rate.allowed) {
-    return new Response('', {
-      status: 429,
-      headers: { ...baseHeaders, 'retry-after': String(rate.retryAfter) },
-    });
+    return apiError(429, 'rate limit exceeded', 'rate_limited', withRateHeaders(baseHeaders, rate));
   }
   const url = new URL(request.url);
   const raw = url.searchParams.get('ip')?.trim() ?? null;
@@ -24,20 +22,16 @@ export async function GET(request: Request) {
   if (raw) {
     const normalized = normalizeIp(raw);
     if (!isValidIp(normalized)) {
-      return new Response('', { status: 400, headers: baseHeaders });
+      return apiError(400, 'invalid ip address', 'invalid_input', baseHeaders);
     }
     ip = normalized;
   } else {
     ip = extractVisitorIp(request.headers);
   }
   if (!ip) {
-    return new Response('', { status: 400, headers: baseHeaders });
+    return apiError(400, 'could not determine ip', 'invalid_input', baseHeaders);
   }
   return new Response(`${ip}\n`, {
-    headers: {
-      ...baseHeaders,
-      'x-ratelimit-limit': String(rate.limit),
-      'x-ratelimit-remaining': String(rate.remaining),
-    },
+    headers: withRateHeaders(baseHeaders, rate),
   });
 }

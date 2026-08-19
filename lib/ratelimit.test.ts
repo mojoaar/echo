@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { createRateLimiter, getRateLimiter, resetRateLimiter } from '@/lib/ratelimit';
 
 function fakeClock(initial: number) {
@@ -58,16 +58,54 @@ describe('createRateLimiter', () => {
 });
 
 describe('getRateLimiter', () => {
-  it('caches a singleton across calls', () => {
+  afterEach(() => {
     resetRateLimiter();
-    expect(getRateLimiter()).toBe(getRateLimiter());
+    delete process.env.RATE_LIMIT_MAX;
+    delete process.env.RATE_LIMIT_WINDOW_MS;
+    delete process.env.RATE_LIMIT_JSON_MAX;
+    delete process.env.RATE_LIMIT_JSON_WINDOW_MS;
+    delete process.env.RATE_LIMIT_IP_MAX;
+    delete process.env.RATE_LIMIT_IP_WINDOW_MS;
   });
 
-  it('rebuilds after resetRateLimiter', () => {
+  it('caches each named limiter independently', () => {
     resetRateLimiter();
-    const first = getRateLimiter();
+    const json = getRateLimiter('json');
+    const ip = getRateLimiter('ip');
+    expect(json).toBe(getRateLimiter('json'));
+    expect(ip).toBe(getRateLimiter('ip'));
+    expect(json).not.toBe(ip);
+    expect(json.allow('same-key').allowed).toBe(true);
+    expect(ip.allow('same-key').allowed).toBe(true);
+  });
+
+  it('uses legacy global values as fallback for named limiters', () => {
+    process.env.RATE_LIMIT_MAX = '1';
+    process.env.RATE_LIMIT_WINDOW_MS = '1234';
+    const limiter = getRateLimiter('json');
+    const first = limiter.allow('key');
+    expect(first.limit).toBe(1);
+    expect(first.retryAfter).toBe(0);
+    expect(limiter.allow('key').retryAfter).toBe(1234);
+  });
+
+  it('uses endpoint values before legacy global values', () => {
+    process.env.RATE_LIMIT_MAX = '7';
+    process.env.RATE_LIMIT_WINDOW_MS = '1234';
+    process.env.RATE_LIMIT_JSON_MAX = '1';
+    process.env.RATE_LIMIT_JSON_WINDOW_MS = '5678';
+    const limiter = getRateLimiter('json');
+    const first = limiter.allow('key');
+    expect(first.limit).toBe(1);
+    expect(first.retryAfter).toBe(0);
+    expect(limiter.allow('key').retryAfter).toBe(5678);
+  });
+
+  it('rebuilds all named limiters after resetRateLimiter', () => {
     resetRateLimiter();
-    expect(getRateLimiter()).not.toBe(first);
+    const first = getRateLimiter('json');
+    resetRateLimiter();
+    expect(getRateLimiter('json')).not.toBe(first);
   });
 
   it('caps the number of tracked keys', () => {

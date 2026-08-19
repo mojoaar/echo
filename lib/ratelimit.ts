@@ -5,6 +5,9 @@ export interface RateLimitResult {
   limit: number;
 }
 
+export type RateLimiter = ReturnType<typeof createRateLimiter>;
+export type RateLimiterName = 'json' | 'ip' | 'history' | 'whois' | 'dns' | 'stats-auth';
+
 interface RateLimiterOptions {
   max: number;
   windowMs: number;
@@ -60,7 +63,16 @@ export function createRateLimiter({ max, windowMs, now = Date.now, maxKeys = 10_
   };
 }
 
-let limiter: ReturnType<typeof createRateLimiter> | null = null;
+const limiterDefaults: Record<RateLimiterName, { max: number; windowMs: number }> = {
+  json: { max: 30, windowMs: 60_000 },
+  ip: { max: 60, windowMs: 60_000 },
+  history: { max: 30, windowMs: 60_000 },
+  whois: { max: 10, windowMs: 60_000 },
+  dns: { max: 10, windowMs: 60_000 },
+  'stats-auth': { max: 5, windowMs: 60_000 },
+};
+
+const limiters = new Map<RateLimiterName, RateLimiter>();
 
 function envNumber(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -68,16 +80,22 @@ function envNumber(name: string, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export function getRateLimiter() {
-  if (!limiter) {
-    limiter = createRateLimiter({
-      max: envNumber('RATE_LIMIT_MAX', 30),
-      windowMs: envNumber('RATE_LIMIT_WINDOW_MS', 60_000),
-    });
-  }
+export function getRateLimiter(name: RateLimiterName): RateLimiter {
+  const existing = limiters.get(name);
+  if (existing) return existing;
+  const envName = name.toUpperCase().replace('-', '_');
+  const defaults = limiterDefaults[name];
+  const limiter = createRateLimiter({
+    max: envNumber(`RATE_LIMIT_${envName}_MAX`, envNumber('RATE_LIMIT_MAX', defaults.max)),
+    windowMs: envNumber(
+      `RATE_LIMIT_${envName}_WINDOW_MS`,
+      envNumber('RATE_LIMIT_WINDOW_MS', defaults.windowMs),
+    ),
+  });
+  limiters.set(name, limiter);
   return limiter;
 }
 
 export function resetRateLimiter() {
-  limiter = null;
+  limiters.clear();
 }

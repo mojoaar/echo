@@ -50,6 +50,7 @@ describe('GET /api/history', () => {
     );
     expect(second.status).toBe(429);
     expect(second.headers.get('retry-after')).toBeTruthy();
+    expect(await second.json()).toEqual({ error: 'rate limit exceeded', code: 'rate_limited' });
     delete process.env.RATE_LIMIT_MAX;
     resetRateLimiter();
   });

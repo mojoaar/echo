@@ -1,6 +1,7 @@
 import { resolveRecords, isValidHostname } from '@/lib/dns';
 import { getRateLimiter } from '@/lib/ratelimit';
 import { extractVisitorIp } from '@/lib/ip';
+import { apiError, withRateHeaders } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,19 +20,18 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const name = url.searchParams.get('name')?.trim() ?? null;
   if (!name || !isValidHostname(name)) {
-    return Response.json({ error: 'invalid hostname' }, { status: 400, headers: corsHeaders });
+    return apiError(400, 'invalid hostname', 'invalid_input', corsHeaders);
   }
   const key = extractVisitorIp(request.headers) ?? 'anonymous';
-  const rate = getRateLimiter().allow(key);
+  const rate = getRateLimiter('dns').allow(key);
   if (!rate.allowed) {
-    const headers = { ...corsHeaders, 'retry-after': String(rate.retryAfter) };
-    return Response.json({ error: 'rate limit exceeded' }, { status: 429, headers });
+    return apiError(
+      429,
+      'rate limit exceeded',
+      'rate_limited',
+      withRateHeaders(corsHeaders, rate),
+    );
   }
   const records = await resolveRecords(name);
-  const headers = {
-    ...corsHeaders,
-    'x-ratelimit-limit': String(rate.limit),
-    'x-ratelimit-remaining': String(rate.remaining),
-  };
-  return Response.json({ name, records }, { headers });
+  return Response.json({ name, records }, { headers: withRateHeaders(corsHeaders, rate) });
 }

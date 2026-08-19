@@ -1,5 +1,8 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { countLookups, countSince, topCountryCodes, topIps, dailyCounts } from '@/lib/db';
+import { extractVisitorIp } from '@/lib/ip';
+import { apiError, withRateHeaders } from '@/lib/api';
+import { getRateLimiter } from '@/lib/ratelimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,17 +13,24 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export async function GET(request: Request) {
-  const expected = process.env.STATS_TOKEN;
-  if (!expected) {
-    return Response.json({ error: 'not found' }, { status: 404 });
-  }
   const url = new URL(request.url);
+  const expected = process.env.STATS_TOKEN;
   const queryToken = url.searchParams.get('token');
   const auth = request.headers.get('authorization');
   const bearer = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
   const provided = queryToken ?? bearer;
-  if (!provided || !safeEqual(provided, expected)) {
-    return Response.json({ error: 'not found' }, { status: 404 });
+  if (!expected || !provided || !safeEqual(provided, expected)) {
+    const key = extractVisitorIp(request.headers) ?? 'anonymous';
+    const rate = getRateLimiter('stats-auth').allow(key);
+    if (!rate.allowed) {
+      return apiError(
+        429,
+        'rate limit exceeded',
+        'rate_limited',
+        withRateHeaders({ 'cache-control': 'no-store' }, rate),
+      );
+    }
+    return apiError(404, 'not found', 'not_found', { 'cache-control': 'no-store' });
   }
   const now = Date.now();
   const body = {

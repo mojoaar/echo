@@ -89,6 +89,7 @@ describe('GET /api/json rate limiting', () => {
     expect(blocked.headers.get('access-control-allow-origin')).toBe('*');
     const body = await blocked.json();
     expect(body.error).toBe('rate limit exceeded');
+    expect(body.code).toBe('rate_limited');
   });
 
   it('keeps separate rate windows per visitor ip', async () => {

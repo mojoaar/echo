@@ -1,6 +1,7 @@
 import { countLookups, countSince, topCountryCodes } from '@/lib/db';
 import { extractVisitorIp } from '@/lib/ip';
 import { getRateLimiter } from '@/lib/ratelimit';
+import { apiError, withRateHeaders } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,10 +18,14 @@ export async function OPTIONS() {
 
 export async function GET(request: Request) {
   const key = extractVisitorIp(request.headers) ?? 'anonymous';
-  const rate = getRateLimiter().allow(key);
+  const rate = getRateLimiter('history').allow(key);
   if (!rate.allowed) {
-    const headers = { ...corsHeaders, 'retry-after': String(rate.retryAfter) };
-    return Response.json({ error: 'rate limit exceeded' }, { status: 429, headers });
+    return apiError(
+      429,
+      'rate limit exceeded',
+      'rate_limited',
+      withRateHeaders(corsHeaders, rate),
+    );
   }
   const now = Date.now();
   const body = {
@@ -28,10 +33,5 @@ export async function GET(request: Request) {
     last24h: countSince(now - 86_400_000),
     topCountries: topCountryCodes(10),
   };
-  const headers = {
-    ...corsHeaders,
-    'x-ratelimit-limit': String(rate.limit),
-    'x-ratelimit-remaining': String(rate.remaining),
-  };
-  return Response.json(body, { headers });
+  return Response.json(body, { headers: withRateHeaders(corsHeaders, rate) });
 }

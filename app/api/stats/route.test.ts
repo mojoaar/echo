@@ -22,6 +22,7 @@ describe('GET /api/stats', () => {
     delete process.env.STATS_TOKEN;
     const res = await GET(new Request('http://localhost/api/stats?token=x'));
     expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: 'not found', code: 'not_found' });
   });
 
   it('returns 404 for a missing or wrong token', async () => {

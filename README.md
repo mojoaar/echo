@@ -43,8 +43,14 @@ npm run lint           # typecheck (tsc --noEmit)
 | `APP_URL` | `https://echo.johansen.foo` | Public origin used in metadata and footer curl examples |
 | `ECHO_TAG` | `latest` | GHCR image tag to pull (e.g. `v1.2.0`) |
 | `TZ` | `Europe/Copenhagen` | Container timezone |
-| `RATE_LIMIT_MAX` | `30` | Max requests per visitor IP per window on the public API |
-| `RATE_LIMIT_WINDOW_MS` | `60000` | Rate-limit window length in milliseconds |
+| `RATE_LIMIT_MAX` | `30` | Legacy fallback max for endpoints without an endpoint-specific value |
+| `RATE_LIMIT_WINDOW_MS` | `60000` | Legacy fallback window length in milliseconds |
+| `RATE_LIMIT_JSON_MAX` / `RATE_LIMIT_JSON_WINDOW_MS` | `30` / `60000` | `/api/json` max and window |
+| `RATE_LIMIT_IP_MAX` / `RATE_LIMIT_IP_WINDOW_MS` | `60` / `60000` | `/api/ip` max and window |
+| `RATE_LIMIT_HISTORY_MAX` / `RATE_LIMIT_HISTORY_WINDOW_MS` | `30` / `60000` | `/api/history` max and window |
+| `RATE_LIMIT_WHOIS_MAX` / `RATE_LIMIT_WHOIS_WINDOW_MS` | `10` / `60000` | `/api/whois` max and window |
+| `RATE_LIMIT_DNS_MAX` / `RATE_LIMIT_DNS_WINDOW_MS` | `10` / `60000` | `/api/dns` max and window |
+| `RATE_LIMIT_STATS_AUTH_MAX` / `RATE_LIMIT_STATS_AUTH_WINDOW_MS` | `5` / `60000` | Failed `/api/stats` authentication max and window |
 | `STATS_TOKEN` | _(unset)_ | Optional secret token protecting `/api/stats`; endpoint is disabled when unset |
 | `UMAMI_SCRIPT_URL` | _(unset)_ | Umami script URL; when set together with `UMAMI_WEBSITE_ID`, the analytics script is injected |
 | `UMAMI_WEBSITE_ID` | _(unset)_ | Umami website id |
@@ -67,7 +73,7 @@ $ curl https://echo.johansen.foo/api/ip?ip=8.8.8.8
 
 ### `GET /api/json`
 
-Returns the full geo payload for the caller's IP address, or for a specific address when `?ip=` is provided. Responses are CORS-enabled and carry `x-ratelimit-limit` and `x-ratelimit-remaining` headers. Exceeding the per-IP window returns `429` with a `retry-after` header.
+Returns the full geo payload for the caller's IP address, or for a specific address when `?ip=` is provided. Responses are CORS-enabled and carry `x-ratelimit-limit` and `x-ratelimit-remaining` headers. Exceeding the per-IP window returns `429` with `{ "error": "rate limit exceeded", "code": "rate_limited" }` and a `retry-after` header in delta-seconds. Endpoint-specific variables take precedence; the legacy global variables are fallback values only.
 
 ```
 $ curl https://echo.johansen.foo/api/json?ip=8.8.8.8
@@ -116,7 +122,7 @@ Same CORS and rate-limit headers. This is a breaking change from the previous ra
 
 ### `GET /api/stats?token=SECRET`
 
-Private owner-analytics endpoint. Requires the `STATS_TOKEN` environment variable; requests must pass the matching value via `?token=` or an `Authorization: Bearer SECRET` header. Returns totals, last-24h count, top countries, top IPs, and a per-day breakdown. Returns `404` when `STATS_TOKEN` is unset or the token is wrong, and is not rate-limited.
+Private owner-analytics endpoint. Requires the `STATS_TOKEN` environment variable; requests must pass the matching value via `?token=` or an `Authorization: Bearer SECRET` header. Returns totals, last-24h count, top countries, top IPs, and a per-day breakdown. Returns `404` when `STATS_TOKEN` is unset or the token is wrong. Failed authentication uses the separate `stats-auth` bucket; successful reads are not rate-limited.
 
 To generate and set a token, add it to a `.env` file next to `docker-compose.yml`:
 
@@ -156,7 +162,7 @@ docker run -d --name echo -p 3100:3000 \
 
 The default timezone is `Europe/Copenhagen`; set `TZ` to change it (for example `UTC`).
 
-The app trusts `x-real-ip` first, then `x-forwarded-for`. The reverse proxy must overwrite these headers with the verified client address.
+The app trusts `x-real-ip` first, then `x-forwarded-for`. The reverse proxy must overwrite these headers with the verified client address. Treat the proxy and host firewall as the trusted boundary: do not expose the application port directly to untrusted networks.
 
 When you access the site from inside the same network it's hosted on, NAT-loopback rewrites your source to the gateway's private IP, so the site shows "You are on a private network" — that's expected. Visit from outside your LAN (e.g. mobile data) to see your public WAN IP.
 
