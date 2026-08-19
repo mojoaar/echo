@@ -70,7 +70,7 @@ function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
-function isCountedString(value: unknown): value is { [key: string]: string | number } {
+function isCountedString(value: unknown): value is { iso: string; count: number } {
   return (
     isRecord(value) &&
     typeof value.iso === 'string' &&

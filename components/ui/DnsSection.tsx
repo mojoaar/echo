@@ -29,6 +29,7 @@ export default function DnsSection() {
     }
     setLoading(true);
     setError(null);
+    setResult(null);
     try {
       const res = await fetch(`/api/dns?name=${encodeURIComponent(name)}`, {
         headers: { accept: 'application/json' },
@@ -43,7 +44,6 @@ export default function DnsSection() {
       }
       const body = await res.json();
       if (!isDnsResponse(body)) {
-        setResult(null);
         setError('Could not resolve DNS records.');
         return;
       }

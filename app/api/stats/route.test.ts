@@ -60,6 +60,9 @@ describe('GET /api/stats', () => {
       const second = await GET(request());
       expect(first.status).toBe(404);
       expect(second.status).toBe(429);
+      expect(second.headers.get('x-ratelimit-limit')).toBe('1');
+      expect(second.headers.get('x-ratelimit-remaining')).toBe('0');
+      expect(second.headers.get('retry-after')).toMatch(/^\d+$/);
       expect(countLookups).not.toHaveBeenCalled();
       expect(countSince).not.toHaveBeenCalled();
       expect(topCountryCodes).not.toHaveBeenCalled();
