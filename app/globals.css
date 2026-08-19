@@ -533,6 +533,20 @@ footer a:hover {
   color: var(--muted);
 }
 
+.map-pin-wrap {
+  background: transparent;
+  border: none;
+}
+
+.map-pin {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 12px var(--accent-glow);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

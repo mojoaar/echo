@@ -7,7 +7,8 @@ let leafletPromise: Promise<void> | null = null;
 type Leaflet = {
   map: (el: HTMLElement, opts: Record<string, unknown>) => { setView: (c: [number, number], z: number) => unknown; remove: () => void };
   tileLayer: (url: string, opts: Record<string, unknown>) => { addTo: (map: unknown) => unknown };
-  marker: (c: [number, number]) => { addTo: (map: unknown) => { bindPopup: (t: string) => { openPopup: () => unknown } } };
+  divIcon: (opts: Record<string, unknown>) => unknown;
+  marker: (c: [number, number], opts?: { icon?: unknown }) => { addTo: (map: unknown) => { bindPopup: (t: string) => { openPopup: () => unknown } } };
 };
 
 declare global {
@@ -88,7 +89,13 @@ export default function MapModal({ lat, lon, onClose }: { lat: number; lon: numb
           subdomains: 'abcd',
           maxZoom: 19,
         }).addTo(map);
-        L.marker([lat, lon]).addTo(map).bindPopup(`${lat.toFixed(4)}, ${lon.toFixed(4)}`).openPopup();
+        const icon = L.divIcon({
+          className: 'map-pin-wrap',
+          html: '<div class="map-pin"></div>',
+          iconSize: [14, 14],
+          iconAnchor: [7, 7],
+        });
+        L.marker([lat, lon], { icon }).addTo(map).bindPopup(`${lat.toFixed(4)}, ${lon.toFixed(4)}`).openPopup();
         requestAnimationFrame(() => {
           if (!cancelled && map) map.invalidateSize();
         });
