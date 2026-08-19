@@ -5,6 +5,7 @@ import { lookupInfo } from '@/lib/geo';
 import { insertLookup, countLookups, countSince, topCountryCodes } from '@/lib/db';
 import type { IpInfo } from '@/lib/types';
 import CopyButton from '@/components/ui/CopyButton';
+import CopyLinkButton from '@/components/ui/CopyLinkButton';
 import RefreshButton from '@/components/ui/RefreshButton';
 import LookupForm from '@/components/ui/LookupForm';
 import { MapTrigger } from '@/components/ui/MapModal';
@@ -154,6 +155,7 @@ export default async function Page({
                   <>
                     <CopyButton value={info.ip} label="Copy" />
                     <CopyButton value={JSON.stringify(info, null, 2)} label="Copy as JSON" />
+                    <CopyLinkButton ip={info.ip} />
                   </>
                 )}
                 <RefreshButton />

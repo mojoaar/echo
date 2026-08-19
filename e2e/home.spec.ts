@@ -96,6 +96,38 @@ test('copies the IP and JSON payload and reports clipboard failure honestly', as
   await expect(page.getByRole('button', { name: 'Copy', exact: true })).toBeVisible();
 });
 
+test('copies the share link and reports share-link failure honestly', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (value: string) => {
+          (window as unknown as { copiedText: string }).copiedText = value;
+        },
+      },
+    });
+  });
+  await page.setExtraHTTPHeaders({ 'x-real-ip': '192.168.1.10' });
+  await page.goto('/?ip=8.8.8.8');
+
+  const copyLink = page.getByRole('button', { name: 'Copy link', exact: true });
+  await copyLink.click();
+  await expect(page.getByRole('button', { name: 'Link copied', exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { copiedText: string }).copiedText)).toBe(
+    '/?ip=8.8.8.8',
+  );
+
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async () => { throw new Error('clipboard denied'); } },
+    });
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Copy link', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Copy link failed', exact: true })).toBeVisible();
+});
+
 test('switches themes and persists the selected theme', async ({ page }) => {
   await page.setExtraHTTPHeaders({ 'x-real-ip': '192.168.1.10' });
   await page.goto('/');
@@ -130,7 +162,13 @@ test('renders the map modal with the CSS marker and restores focus', async ({ pa
 
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator('.modal')).toHaveCSS('width', /.+/);
+  const modalSize = await dialog.locator('.modal').evaluate((element) => ({
+    width: element.getBoundingClientRect().width,
+    viewportWidth: window.innerWidth,
+  }));
+  expect(modalSize.width).toBeGreaterThan(0);
+  expect(modalSize.width).toBeLessThanOrEqual(680);
+  expect(modalSize.width).toBeLessThanOrEqual(modalSize.viewportWidth - 40);
   await expect(dialog.locator('.modal-map')).toBeVisible();
   await expect.poll(() => page.locator('.map-pin').count()).toBeGreaterThan(0);
   await expect(page.locator('.map-pin')).toBeVisible();
@@ -138,5 +176,3 @@ test('renders the map modal with the CSS marker and restores focus', async ({ pa
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
 });
-
-test.fixme('copy-link success and failure are covered when the share-link control is added', async () => {});

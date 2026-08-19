@@ -213,6 +213,7 @@ code {
 .form input {
   flex: 1;
   min-width: 0;
+  min-height: 44px;
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
@@ -477,8 +478,13 @@ code {
   background: transparent;
   color: var(--accent);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font: inherit;
-  padding: 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 4px;
   text-decoration: underline;
 }
 
