@@ -21,6 +21,7 @@ Yet another "what is my IP" service — but this one tells you what the internet
 - [mmdb-lib](https://github.com/nicolo-ribaudo/mmdb-lib) to read the bundled [db-ip](https://db-ip.com) MMDB files
 - [@photostructure/tz-lookup](https://github.com/photostructure/tz-lookup) to derive the timezone from coordinates
 - [Vitest](https://vitest.dev) for tests
+- [Playwright](https://playwright.dev) for deterministic desktop and mobile browser tests
 - [Docker](https://docker.com) for delivery
 
 ## Local development
@@ -34,7 +35,15 @@ npm run dev
 ```bash
 npm test               # run the test suite
 npm run lint           # typecheck (tsc --noEmit)
+npm run coverage       # V8 coverage with enforced server-side thresholds
+npx playwright install chromium webkit
+npx playwright test   # local Next server, with RDAP/DNS fixtures in browser specs
+npm audit --audit-level=high
 ```
+
+Browser tests start a local Next development server and intercept RDAP, DNS, and Leaflet requests where the upstream service is not the behavior under test. The Playwright config uses `bypassCSP` only in the test browser context because the current development response contains a dynamic Next hydration payload that cannot use the fixed CSP hash; production CSP headers remain unchanged and are covered by the existing config tests. The browser suite has one expected `fixme` for the copy-link control, which is implemented in the later share-links task.
+
+The CI supply-chain jobs require GitHub Actions to be able to download the pinned action dependencies, Docker Buildx to build the local image, and Trivy's vulnerability database to be reachable. Secret scanning uses TruffleHog's verified-results mode and therefore reports only verified findings. Trivy blocks HIGH and CRITICAL vulnerabilities; `.trivyignore` is intentionally absent because no reviewed false positives are currently accepted. SBOM files are retained as workflow artifacts for 30 days. Image signing is intentionally deferred.
 
 ## Environment variables
 

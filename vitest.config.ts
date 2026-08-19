@@ -11,6 +11,12 @@ export default defineConfig({
       include: ['lib/**/*.ts', 'app/api/**/*.ts'],
       exclude: ['**/*.test.ts'],
       reporter: ['text-summary'],
+      thresholds: {
+        statements: 80,
+        lines: 80,
+        functions: 80,
+        branches: 70,
+      },
     },
   },
   resolve: {
