@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - DNS lookups now enforce public-only policy and expose bounded cache, timing, and partial-result metadata
+- DNS result timestamps now use 24-hour formatting while preserving the browser's local timezone
+- WHOIS IP and ASN registration details are presented together in one consolidated table
 - Lookup retention, aggregate public history, endpoint budgets, stable error codes, and HTTP rate headers are documented as explicit contracts
 - CI and browser verification gates now cover coverage thresholds, CSP, supply chain, container, and deterministic browser behavior
 

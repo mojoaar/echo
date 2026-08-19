@@ -10,7 +10,7 @@ async function stubOptionalLookups(page: Page) {
         name: 'example.com',
         records: { a: ['93.184.216.34'], aaaa: [], mx: [], ns: [], txt: [], soa: [] },
         cache: 'miss',
-        resolvedAt: '2026-08-19T12:00:00.000Z',
+        resolvedAt: '2026-08-19T20:15:03',
         durationMs: 12,
         partial: false,
       }),
@@ -216,11 +216,14 @@ test('shows deterministic DNS and WHOIS success states', async ({ page }) => {
   await page.getByRole('button', { name: 'Resolve' }).click();
   await expect(page.getByText('93.184.216.34')).toBeVisible();
   await expect(page.getByText('Fresh result')).toBeVisible();
+  await expect(page.locator('.dns-meta')).toContainText('20:15:03');
+  await expect(page.locator('.dns-meta')).not.toContainText('AM');
+  await expect(page.locator('.dns-meta')).not.toContainText('PM');
 
   await page.getByRole('button', { name: 'Load WHOIS data' }).click();
   await expect(page.locator('.whois-value').filter({ hasText: 'Google LLC' }).first()).toBeVisible();
   await expect(page.getByText('NET-8-8-8-0-1')).toBeVisible();
-  await expect(page.getByText('ASN registration data is unavailable. Retry to check again.')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'WHOIS registration' })).toBeVisible();
 });
 
 test('renders IP and ASN registration independently without absent contact fields', async ({ page }) => {
@@ -230,12 +233,12 @@ test('renders IP and ASN registration independently without absent contact field
 
   await page.getByRole('button', { name: 'Load WHOIS data' }).click();
 
-  const ipRegistration = page.getByRole('region', { name: 'IP registration and netblock' });
-  const asnRegistration = page.getByRole('region', { name: 'ASN registration' });
-  await expect(ipRegistration).toContainText('Google LLC');
-  await expect(ipRegistration).toContainText('NET-8-8-8-0-1');
-  await expect(asnRegistration).toContainText('Google Network');
-  await expect(asnRegistration).toContainText('AS15169');
+  const registration = page.getByRole('region', { name: 'WHOIS registration' });
+  await expect(registration).toContainText('IP netblock');
+  await expect(registration).toContainText('NET-8-8-8-0-1');
+  await expect(registration).toContainText('ASN organization');
+  await expect(registration).toContainText('Google Network');
+  await expect(registration).toContainText('AS15169');
   await expect(page.getByText('Abuse contact')).toHaveCount(0);
 });
 

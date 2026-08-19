@@ -38,45 +38,38 @@ export default function WhoisSection({ ip }: { ip: string }) {
     }
   }
 
-  const ipRows: Array<{ label: string; value: string | null }> = data?.ip
-    ? [
-        { label: 'Organization', value: data.ip.organization },
-        { label: 'Registrant', value: data.ip.registrant },
-        {
-          label: 'Abuse contact',
-          value: [data.ip.abuse?.email, data.ip.abuse?.phone].filter(Boolean).join(' · ') || null,
-        },
-        {
-          label: 'Netblock',
-          value:
-            data.ip.startAddress && data.ip.endAddress
-              ? `${data.ip.startAddress} – ${data.ip.endAddress}`
-              : null,
-        },
-        { label: 'CIDR', value: data.ip.cidr },
-        { label: 'Handle', value: data.ip.handle },
-      ]
-    : [];
-
-  const asnRows: Array<{ label: string; value: string | null }> = data?.asn
-    ? [
-        { label: 'Organization', value: data.asn.organization },
-        { label: 'Name', value: data.asn.name },
-        { label: 'Country', value: data.asn.country },
-        {
-          label: 'ASN range',
-          value:
-            data.asn.startAutnum != null && data.asn.endAutnum != null
-              ? `AS${data.asn.startAutnum} – AS${data.asn.endAutnum}`
-              : null,
-        },
-        { label: 'Handle', value: data.asn.handle },
-        {
-          label: 'Abuse contact',
-          value: [data.asn.abuse?.email, data.asn.abuse?.phone].filter(Boolean).join(' · ') || null,
-        },
-      ]
-    : [];
+  const ipOrganization = data?.ip?.organization ?? null;
+  const asnOrganization = data?.asn?.organization ?? null;
+  const ipAbuse = [data?.ip?.abuse?.email, data?.ip?.abuse?.phone].filter(Boolean).join(' · ') || null;
+  const asnAbuse = [data?.asn?.abuse?.email, data?.asn?.abuse?.phone].filter(Boolean).join(' · ') || null;
+  const sharedAbuse = ipAbuse && ipAbuse === asnAbuse ? ipAbuse : null;
+  const registrationRows: Array<{ label: string; value: string | null }> = [
+    {
+      label: 'IP netblock',
+      value:
+        data?.ip?.startAddress && data.ip.endAddress
+          ? `${data.ip.startAddress} – ${data.ip.endAddress}`
+          : null,
+    },
+    { label: 'IP CIDR', value: data?.ip?.cidr ?? null },
+    { label: 'IP handle', value: data?.ip?.handle ?? null },
+    { label: 'Registrant', value: data?.ip?.registrant ?? null },
+    { label: 'IP organization', value: ipOrganization },
+    { label: 'ASN organization', value: asnOrganization && asnOrganization !== ipOrganization ? asnOrganization : null },
+    { label: 'ASN name', value: data?.asn?.name ?? null },
+    { label: 'ASN country', value: data?.asn?.country ?? null },
+    {
+      label: 'ASN range',
+      value:
+        data?.asn?.startAutnum != null && data.asn.endAutnum != null
+          ? `AS${data.asn.startAutnum} – AS${data.asn.endAutnum}`
+          : null,
+    },
+    { label: 'ASN handle', value: data?.asn?.handle ?? null },
+    { label: 'Abuse contact', value: sharedAbuse },
+    { label: 'IP abuse contact', value: sharedAbuse ? null : ipAbuse },
+    { label: 'ASN abuse contact', value: sharedAbuse ? null : asnAbuse },
+  ];
 
   return (
     <section className="whois">
@@ -94,13 +87,9 @@ export default function WhoisSection({ ip }: { ip: string }) {
       )}
       {data && (
         <>
-          <section aria-labelledby="whois-ip-title">
-            <h3 className="whois-subtitle" id="whois-ip-title">IP registration and netblock</h3>
-            {data.ip ? <WhoisRows rows={ipRows} /> : <p className="whois-hint muted">IP registration data is unavailable.</p>}
-          </section>
-          <section aria-labelledby="whois-asn-title">
-            <h3 className="whois-subtitle" id="whois-asn-title">ASN registration</h3>
-            {data.asn ? <WhoisRows rows={asnRows} /> : <p className="whois-hint muted">ASN registration data is unavailable. Retry to check again.</p>}
+          <section aria-labelledby="whois-registration-title">
+            <h3 className="whois-subtitle" id="whois-registration-title">WHOIS registration</h3>
+            {data.ip || data.asn ? <WhoisRows rows={registrationRows} /> : <p className="whois-hint muted">Registration data is unavailable. Retry to check again.</p>}
           </section>
         </>
       )}

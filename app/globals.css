@@ -380,6 +380,16 @@ code {
   padding: 6px 0;
 }
 
+.whois > section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.whois-subtitle {
+  margin: 22px 0 0;
+}
+
 .whois-body .feed-row {
   display: flex;
   align-items: center;

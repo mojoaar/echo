@@ -123,7 +123,17 @@ export default function DnsSection() {
       {result && (
         <div className="dns-meta" aria-live="polite">
           <span>{result.cache === 'hit' ? 'Cached result' : 'Fresh result'}</span>
-          <span>{new Date(result.resolvedAt).toLocaleString()}</span>
+          <span>
+            {new Date(result.resolvedAt).toLocaleString(undefined, {
+              year: 'numeric',
+              month: 'numeric',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hourCycle: 'h23',
+            })}
+          </span>
           <span>{result.durationMs} ms</span>
         </div>
       )}
