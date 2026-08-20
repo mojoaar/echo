@@ -251,6 +251,20 @@ describe('resource sampler lifecycle', () => {
     expect(getDb().prepare('SELECT COUNT(*) AS count FROM resource_samples').get()).toEqual({ count: 3 });
   });
 
+  it('retains only the last 30 days of resource samples in SQLite', () => {
+    const now = 1_700_000_000_000;
+    const insert = getDb().prepare('INSERT INTO resource_samples (ts) VALUES (?)');
+    insert.run(now - 30 * DAY_MS - 1);
+    insert.run(now - 30 * DAY_MS);
+    insert.run(now);
+
+    expect(pruneResourceSamples(now)).toBe(1);
+    expect(getDb().prepare('SELECT ts FROM resource_samples ORDER BY ts ASC').all()).toEqual([
+      { ts: now - 30 * DAY_MS },
+      { ts: now },
+    ]);
+  });
+
   it('does not create duplicate samplers', () => {
     process.env.ADMIN_TOKEN = 'configured';
     const first = (samplerCleanup = startResourceSampler());

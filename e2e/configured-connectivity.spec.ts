@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('permits configured probes and displays independent success, failure, and timeout states', async ({ page }) => {
   let attempt = 0;
+  const configuredOrigin = `http://127.0.0.1:${process.env.ECHO_PLAYWRIGHT_CONFIGURED_PORT ?? '3001'}`;
   const apiRequests: string[] = [];
   page.on('request', (request) => {
     if (request.url().includes('/api/')) apiRequests.push(request.url());
@@ -11,7 +12,7 @@ test('permits configured probes and displays independent success, failure, and t
       await route.fulfill({
         status: 200,
         body: 'ok',
-        headers: { 'access-control-allow-origin': 'http://127.0.0.1:3001' },
+        headers: { 'access-control-allow-origin': configuredOrigin },
       });
     } else {
       await route.abort('failed');
@@ -22,7 +23,7 @@ test('permits configured probes and displays independent success, failure, and t
       await route.fulfill({
         status: 503,
         body: 'unavailable',
-        headers: { 'access-control-allow-origin': 'http://127.0.0.1:3001' },
+        headers: { 'access-control-allow-origin': configuredOrigin },
       });
     } else {
       await new Promise((resolve) => setTimeout(resolve, 2_700));

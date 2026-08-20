@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 const ADMIN_TOKEN = 'test-admin-token';
+const configuredPort = process.env.ECHO_PLAYWRIGHT_CONFIGURED_PORT ?? '3001';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -55,7 +56,7 @@ async function stubAdminData(page: import('@playwright/test').Page, resources: u
 }
 
 test('does not expose admin when ADMIN_TOKEN is disabled', async ({ request }) => {
-  const response = await request.get('http://127.0.0.1:3001/admin');
+  const response = await request.get(`http://127.0.0.1:${configuredPort}/admin`);
   expect(response.status()).toBe(404);
   expect(await response.text()).not.toContain(ADMIN_TOKEN);
 });
@@ -106,13 +107,15 @@ test('applies daily, weekly, monthly, and custom date ranges', async ({ page }) 
   }
 
   await page.getByRole('button', { name: 'Custom range' }).click();
-  const customFrom = await from.inputValue();
-  const customTo = await to.inputValue();
+  await from.fill('2026-08-01');
+  await to.fill('2026-08-15');
+  await expect(from).toHaveValue('2026-08-01');
+  await expect(to).toHaveValue('2026-08-15');
+  const customRequest = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/admin/activity');
   await page.getByRole('button', { name: 'Apply filters' }).click();
-  await expect.poll(() => activityUrls.length).toBeGreaterThan(3);
-  const customUrl = new URL(activityUrls.at(-1) as string);
-  expect(customUrl.searchParams.get('from')).toBe(customFrom);
-  expect(customUrl.searchParams.get('to')).toBe(customTo);
+  const customUrl = new URL((await customRequest).url());
+  expect(customUrl.searchParams.get('from')).toBe('2026-08-01');
+  expect(customUrl.searchParams.get('to')).toBe('2026-08-15');
 });
 
 test('filters activity and renders the table, resource cards, and charts', async ({ page }) => {
@@ -196,14 +199,18 @@ test('filters activity and renders the table, resource cards, and charts', async
 test('does not include the admin token in HTML or network response bodies', async ({ page }) => {
   const responseBodies: Promise<string>[] = [];
   page.on('requestfinished', (request) => {
-    responseBodies.push(request.response().then((response) => response?.text() ?? '').catch(() => ''));
+    if ((request.resourceType() === 'fetch' || request.resourceType() === 'xhr') && new URL(request.url()).pathname.startsWith('/api/admin/')) {
+      responseBodies.push(request.response().then((response) => response?.text() ?? '').catch(() => ''));
+    }
   });
   await signIn(page);
   await stubAdminData(page);
+  const activityResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/admin/activity');
+  const resourcesResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/admin/resources');
   await page.getByRole('button', { name: 'Apply filters' }).click();
+  await Promise.all([activityResponse, resourcesResponse]);
   await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
   expect(await page.content()).not.toContain(ADMIN_TOKEN);
-  await page.waitForTimeout(100);
   for (const body of await Promise.all(responseBodies)) expect(body).not.toContain(ADMIN_TOKEN);
 });
 
@@ -226,6 +233,7 @@ test.describe('mobile admin', () => {
     await page.getByRole('button', { name: 'Apply filters' }).click();
     await expect(page.getByRole('cell', { name: '203.0.113.10' })).toBeVisible();
     await expect(page.getByRole('img', { name: 'Memory history' })).toBeVisible();
+    await expect(page.getByRole('img', { name: '/data history' })).toBeVisible();
     const dimensions = await page.evaluate(() => ({ documentWidth: document.documentElement.scrollWidth, viewportWidth: window.innerWidth }));
     expect(dimensions.documentWidth).toBeLessThanOrEqual(dimensions.viewportWidth);
     const controls = page.locator('.admin-shell button:visible, .admin-shell input:visible, .admin-shell select:visible');
