@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - DNS result timestamps now use strict ISO 8601 formatting with the browser's local timezone offset
+- Admin login card no longer stretches to the full viewport height
+- Connectivity diagnostics are hidden when no probe URL is configured
 
 ### Added
 

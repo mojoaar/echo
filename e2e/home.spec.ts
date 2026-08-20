@@ -240,7 +240,7 @@ test('renders IP and ASN registration independently without absent contact field
   await expect(page.getByText('Abuse contact')).toHaveCount(0);
 });
 
-test('shows unconfigured connectivity diagnostics, retries independently, and makes no lookup call', async ({ page }) => {
+test('hides connectivity diagnostics when no probe is configured', async ({ page }) => {
   await page.setExtraHTTPHeaders({ 'x-real-ip': '192.168.1.10' });
   const apiRequests: string[] = [];
   page.on('request', (request) => {
@@ -248,15 +248,7 @@ test('shows unconfigured connectivity diagnostics, retries independently, and ma
   });
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'Connectivity diagnostic' })).toBeVisible();
-  await expect(page.locator('.connectivity-result').nth(0)).toContainText('IPv4Not configured');
-  await expect(page.locator('.connectivity-result').nth(1)).toContainText('IPv6Not configured');
-  await expect(page.getByText('Browser reachability only. This does not measure or change the IP recorded by the server.')).toBeVisible();
-
-  await page.getByRole('button', { name: 'Test connectivity' }).click();
-  const retry = page.getByRole('button', { name: 'Retry connectivity test' });
-  await retry.click();
-  await expect(retry).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Connectivity diagnostic' })).toHaveCount(0);
   expect(apiRequests).toEqual([]);
 });
 

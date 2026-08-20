@@ -681,6 +681,7 @@ footer a:hover {
 
 .admin-login-card {
   width: min(420px, 100%);
+  height: auto;
   gap: 14px;
 }
 

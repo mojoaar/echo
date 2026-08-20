@@ -257,10 +257,12 @@ export default async function Page({
 
         <DnsSection />
 
-        <ConnectivitySection
-          ipv4Url={process.env.CONNECTIVITY_IPV4_URL}
-          ipv6Url={process.env.CONNECTIVITY_IPV6_URL}
-        />
+        {(process.env.CONNECTIVITY_IPV4_URL || process.env.CONNECTIVITY_IPV6_URL) ? (
+          <ConnectivitySection
+            ipv4Url={process.env.CONNECTIVITY_IPV4_URL}
+            ipv6Url={process.env.CONNECTIVITY_IPV6_URL}
+          />
+        ) : null}
 
         <FeedStats total={stats.total} last24h={stats.last24h} topCountries={stats.topCountries} />
       </main>
