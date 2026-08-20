@@ -12,10 +12,10 @@ import { MapTrigger } from '@/components/ui/MapModal';
 import FeedStats from '@/components/ui/FeedStats';
 import WhoisSection from '@/components/ui/WhoisSection';
 import DnsSection from '@/components/ui/DnsSection';
-import ThemeToggle from '@/components/ui/ThemeToggle';
 import TypeOnText from '@/components/ui/TypeOnText';
 import ConnectivitySection from '@/components/ui/ConnectivitySection';
-import { getVersion } from '@/lib/version';
+import SiteFooter from '@/components/ui/SiteFooter';
+import SiteHeader from '@/components/ui/SiteHeader';
 import type { Metadata } from 'next';
 import { classifyActivityActor, isActivityPathExcluded, recordActivityEvent, resolveActivityChannel } from '@/lib/activity';
 
@@ -35,7 +35,6 @@ function logOperationalEvent(event: {
   }));
 }
 
-const appVersion = getVersion();
 const defaultSiteUrl = 'https://echo.johansen.foo';
 
 function queryIp(value: string | string[] | undefined): string | null {
@@ -179,14 +178,7 @@ export default async function Page({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(block) }}
         />
       ))}
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-dot" aria-hidden="true" />
-          <span className="brand-name">echo</span>
-          <span className="brand-tag">what the internet sees when you connect</span>
-        </div>
-        <ThemeToggle />
-      </header>
+      <SiteHeader />
 
       <main>
         <section className="hero">
@@ -267,36 +259,7 @@ export default async function Page({
         <FeedStats total={stats.total} last24h={stats.last24h} topCountries={stats.topCountries} />
       </main>
 
-      <footer>
-        <p>
-          echo — IP + geo lookup. Data via{' '}
-          <a href="https://db-ip.com/" target="_blank" rel="noreferrer">
-            db-ip
-          </a>{' '}
-          (CC BY 4.0).
-        </p>
-        <p>
-          <code>curl {baseUrl}/api/ip</code> ·{' '}
-          <code>curl {baseUrl}/api/json</code>
-        </p>
-        <p>
-          Built with{' '}
-          <span title="Love" aria-hidden="true">❤️</span>{' '}&{' '}
-          <span title="AI" aria-hidden="true">🤖</span> by{' '}
-          <a href="https://johansen.foo/" target="_blank" rel="noreferrer">
-            Morten Johansen
-          </a>{' '}
-          (
-          <a
-            href="https://github.com/mojoaar/echo"
-            target="_blank"
-            rel="noreferrer"
-          >
-            v{appVersion}
-          </a>
-          )
-        </p>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
