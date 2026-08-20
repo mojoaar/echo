@@ -1,5 +1,10 @@
 # echo
 
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/mojoaar/echo.svg)](https://github.com/mojoaar/echo/releases)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fmojoaar%2Fecho-blue.svg)](https://github.com/mojoaar/echo/pkgs/container/echo)
+[![CI](https://img.shields.io/github/actions/workflow/status/mojoaar/echo/ci.yml.svg)](https://github.com/mojoaar/echo/actions/workflows/ci.yml)
+
 See exactly what the internet sees when you connect: your IP address, location, ISP
 and more — plus WHOIS, DNS and connectivity diagnostics.
 
