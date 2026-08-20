@@ -204,6 +204,50 @@ describe('admin controls and data states', () => {
     expect(html).toContain('Bot labels are heuristic');
   });
 
+  it('renders a visible trend point when the range has a single day of activity', () => {
+    const html = renderToStaticMarkup(
+      createElement(ActivityTable, {
+        result: {
+          ...emptyActivity,
+          trend: [{ value: '2026-08-20', count: 36 }],
+        },
+      }),
+    );
+
+    expect(html).toContain('aria-label="Activity trend"');
+    expect(html).toContain('<circle');
+    expect(html).not.toContain('No activity trend for this range.');
+  });
+
+  it('renders the trend line with points across multiple days', () => {
+    const html = renderToStaticMarkup(
+      createElement(ActivityTable, {
+        result: {
+          ...emptyActivity,
+          trend: [
+            { value: '2026-08-18', count: 1 },
+            { value: '2026-08-19', count: 3 },
+            { value: '2026-08-20', count: 2 },
+          ],
+        },
+      }),
+    );
+
+    expect(html).toContain('<polyline');
+    expect(html).toContain('<circle');
+  });
+
+  it('shows the empty message when the range has no activity trend', () => {
+    const html = renderToStaticMarkup(
+      createElement(ActivityTable, {
+        result: emptyActivity,
+      }),
+    );
+
+    expect(html).toContain('No activity trend for this range.');
+    expect(html).not.toContain('<circle');
+  });
+
   it('sorts activity rows chronologically within the events source', () => {
     const html = renderToStaticMarkup(
       createElement(ActivityTable, {

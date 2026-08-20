@@ -21,10 +21,13 @@ function breakdown(value: string, count: number): string {
   return `${value}: ${count}`;
 }
 
-function trendPoints(result: ActivityQueryResult): string {
+function trendPoints(result: ActivityQueryResult): Array<{ x: number; y: number }> {
   const trend = result.trend ?? [];
   const max = Math.max(...trend.map((item) => item.count), 1);
-  return trend.map((item, index) => `${(index / Math.max(trend.length - 1, 1)) * 100},${40 - (item.count / max) * 34}`).join(' ');
+  return trend.map((item, index) => ({
+    x: (index / Math.max(trend.length - 1, 1)) * 100,
+    y: 40 - (item.count / max) * 34,
+  }));
 }
 
 export default function ActivityTable({ result, timezone = 'UTC', page = 1, hasNext = false, onPrevious, onNext }: ActivityTableProps) {
@@ -54,7 +57,16 @@ export default function ActivityTable({ result, timezone = 'UTC', page = 1, hasN
       </div>
       <div className="admin-activity-trend">
         <div className="admin-chart-label">Activity trend</div>
-        {result.trend?.length ? <svg viewBox="0 0 100 40" role="img" aria-label="Activity trend" preserveAspectRatio="none"><polyline points={trendPoints(result)} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /></svg> : <p className="admin-empty">No activity trend for this range.</p>}
+        {result.trend?.length ? (() => {
+          const points = trendPoints(result);
+          const line = points.map((point) => `${point.x},${point.y}`).join(' ');
+          return (
+            <svg viewBox="0 0 100 40" role="img" aria-label="Activity trend" preserveAspectRatio="none">
+              {points.length > 1 ? <polyline points={line} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /> : null}
+              {points.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r="2.5" fill="var(--accent)" />)}
+            </svg>
+          );
+        })() : <p className="admin-empty">No activity trend for this range.</p>}
       </div>
       {rows.length ? (
         <div className="admin-table-wrap">

@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Navigating back from `/docs` is now possible via the header brand link
 - Mobile Safari keyboard activation of the light/dark toggle no longer flakes in the test suite
+- Admin activity trend stays visible when the selected range contains a single day of activity
 
 ## [1.6.0] - 2026-08-20
 
