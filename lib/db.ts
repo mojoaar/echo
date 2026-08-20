@@ -3,6 +3,23 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import type { CountryCount } from './types';
 
+export interface ResourceSampleRecord {
+  ts: number;
+  cpuPercent: number | null;
+  memoryUsedBytes: number | null;
+  memoryLimitBytes: number | null;
+  dataUsedBytes: number | null;
+  databaseBytes: number | null;
+  walBytes: number | null;
+  shmBytes: number | null;
+  otherDataBytes: number | null;
+  lookupRows: number | null;
+  activityRows: number | null;
+  uptimeSeconds: number | null;
+  localTs: string | null;
+  imageSizeBytes: number | null;
+}
+
 let db: Database.Database | null = null;
 let lastPrunedAt = 0;
 
@@ -120,6 +137,32 @@ export function dailyCounts(sinceTs: number, days = 7): { day: string; count: nu
       "SELECT strftime('%Y-%m-%d', ts / 1000, 'unixepoch') AS day, COUNT(*) AS count FROM lookups WHERE ts >= ? GROUP BY day ORDER BY day ASC LIMIT ?"
     )
     .all(sinceTs, days) as { day: string; count: number }[];
+}
+
+export function insertResourceSample(sample: ResourceSampleRecord): void {
+  getDb()
+    .prepare(
+      `INSERT INTO resource_samples
+        (ts, cpu_percent, memory_used_bytes, memory_limit_bytes, data_used_bytes, database_bytes,
+         wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts, image_size_bytes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      sample.ts,
+      sample.cpuPercent,
+      sample.memoryUsedBytes,
+      sample.memoryLimitBytes,
+      sample.dataUsedBytes,
+      sample.databaseBytes,
+      sample.walBytes,
+      sample.shmBytes,
+      sample.otherDataBytes,
+      sample.lookupRows,
+      sample.activityRows,
+      sample.uptimeSeconds,
+      sample.localTs,
+      sample.imageSizeBytes,
+    );
 }
 
 export function activityRetentionCutoff(nowMs = Date.now()): number {
