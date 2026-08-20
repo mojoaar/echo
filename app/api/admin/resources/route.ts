@@ -1,4 +1,3 @@
-import { apiError } from '@/lib/api';
 import { adminDateRange } from '@/lib/admin-date';
 import { getDb } from '@/lib/db';
 import { adminJson, requireAdmin } from '@/lib/admin-route';
@@ -8,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 
 function invalidInput(): Response {
-  return apiError(400, 'invalid input', 'invalid_input', { 'cache-control': 'no-store' });
+  return adminJson({ error: 'invalid input', code: 'invalid_input' }, 400);
 }
 
 function resourceRow(row: Record<string, unknown>): Record<string, unknown> {
@@ -47,6 +46,6 @@ export async function GET(request: Request): Promise<Response> {
     return adminJson({ current: current ? resourceRow(current) : null, sampler: getResourceSamplerStatus(), history: rows.map(resourceRow) });
   } catch {
     console.error(JSON.stringify({ category: 'database_read', endpoint: '/api/admin/resources', status: 500, durationMs: Math.max(0, Date.now() - startedAt) }));
-    return apiError(500, 'internal server error', 'internal_error', { 'cache-control': 'no-store' });
+    return adminJson({ error: 'internal server error', code: 'internal_error' }, 500);
   }
 }

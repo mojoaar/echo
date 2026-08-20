@@ -62,7 +62,7 @@ export default async function Page() {
   if (!verifyAdminSession(session).valid) return <AdminLogin />;
 
   const today = containerDate();
-  const emptyActivity: ActivityQueryResult = { totalSuccessfulEvents: 0, uniqueIps: 0, countries: [], types: [], outcomes: [], events: [], legacy: [] };
+  const emptyActivity: ActivityQueryResult = { totalSuccessfulEvents: 0, uniqueIps: 0, countries: [], types: [], channels: [], actors: [], outcomes: [], partials: [], events: [], legacy: [], legacySummary: { count: 0, uniqueIps: 0 }, trend: [] };
   let activity = emptyActivity;
   let activityError: string | null = null;
   try {

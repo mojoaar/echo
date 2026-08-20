@@ -39,6 +39,7 @@ describe('GET /api/admin/session', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ authenticated: true });
     expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
     expect(response.headers.get('access-control-allow-origin')).toBeNull();
   });
 
@@ -86,5 +87,19 @@ describe('GET /api/admin/session', () => {
     expect(invalid.status).toBe(429);
     expect(malformed.status).toBe(404);
     expect(malformedLimited.status).toBe(429);
+  });
+
+  it('does not consume the session limiter while admin is disabled', async () => {
+    process.env.RATE_LIMIT_ADMIN_SESSION_MAX = '1';
+    const headers = { 'x-real-ip': '203.0.113.21' };
+    delete process.env.ADMIN_TOKEN;
+    const disabled = await GET(new Request('https://echo.test/api/admin/session', { headers }));
+    process.env.ADMIN_TOKEN = 'admin-secret';
+    const firstEnabled = await GET(new Request('https://echo.test/api/admin/session', { headers }));
+    const secondEnabled = await GET(new Request('https://echo.test/api/admin/session', { headers }));
+
+    expect(disabled.status).toBe(404);
+    expect(firstEnabled.status).toBe(404);
+    expect(secondEnabled.status).toBe(429);
   });
 });

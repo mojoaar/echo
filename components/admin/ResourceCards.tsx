@@ -28,6 +28,10 @@ function currentValue(current: AdminResourceRow | null, key: keyof AdminResource
   return typeof result === 'number' ? result : null;
 }
 
+function timestamp(value: number, timezone: string): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: timezone, dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value));
+}
+
 export default function ResourceCards({ resources, timezone, error = null }: ResourceCardsProps) {
   const current = resources.current;
   const cpu = currentValue(current, 'cpuPercent');
@@ -46,11 +50,11 @@ export default function ResourceCards({ resources, timezone, error = null }: Res
         <div className="admin-resource-card"><span>CPU</span><strong>{cpu === null ? 'unavailable' : `${cpu}%`}</strong><small>{cpu === null ? 'CPU unavailable until the second sample' : 'container CPU'}</small></div>
         <div className="admin-resource-card"><span>Memory</span><strong>{bytes(currentValue(current, 'memoryUsedBytes'))}</strong><small>of {bytes(currentValue(current, 'memoryLimitBytes'))}</small></div>
         <div className="admin-resource-card"><span>/data</span><strong>{bytes(currentValue(current, 'dataUsedBytes'))}</strong><small>persistent usage</small></div>
-        <div className="admin-resource-card"><span>DB / WAL / SHM</span><strong>{bytes(currentValue(current, 'databaseBytes'))}</strong><small>{bytes(currentValue(current, 'walBytes'))} / {bytes(currentValue(current, 'shmBytes'))}</small></div>
+        <div className="admin-resource-card"><span>DB / WAL / SHM</span><strong>{bytes(currentValue(current, 'databaseBytes'))}</strong><small>{bytes(currentValue(current, 'walBytes'))} / {bytes(currentValue(current, 'shmBytes'))}</small><small>other /data {bytes(currentValue(current, 'otherDataBytes'))}</small></div>
         <div className="admin-resource-card"><span>Rows</span><strong>{value(currentValue(current, 'lookupRows'))}</strong><small>lookups / {value(currentValue(current, 'activityRows'))} activity</small></div>
         <div className="admin-resource-card"><span>Uptime</span><strong>{current?.uptimeSeconds === null || current?.uptimeSeconds === undefined ? 'unavailable' : `${Math.floor(current.uptimeSeconds / 3600)}h ${Math.floor((current.uptimeSeconds % 3600) / 60)}m`}</strong><small>{current?.imageSizeBytes === null || current?.imageSizeBytes === undefined ? 'image size unavailable' : `image ${bytes(current.imageSizeBytes)}`}</small></div>
       </div>
-      <p className="admin-note">Sampler status: {sampler.enabled ? (sampler.running ? 'running' : 'stopped') : 'disabled'}{sampler.lastSuccessTs ? ` · last sample ${new Date(sampler.lastSuccessTs).toISOString()}` : ''}{sampler.lastError ? ` · Last sampler error: ${sampler.lastError}` : ''}</p>
+      <p className="admin-note">Sampler status: {sampler.enabled ? (sampler.running ? 'running' : 'stopped') : 'disabled'}{sampler.lastSuccessTs ? ` · last sample ${timestamp(sampler.lastSuccessTs, timezone)}` : ''}{sampler.lastError ? ` · Last sampler error: ${sampler.lastError}` : ''}</p>
     </section>
   );
 }

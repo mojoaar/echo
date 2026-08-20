@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { closeDb, getDb, initDb } from '@/lib/db';
 import { createAdminSession } from '@/lib/admin-auth';
 import * as activity from '@/lib/activity';
+import { resetRateLimiter } from '@/lib/ratelimit';
 import { GET } from './route';
 
 let cookie = '';
@@ -33,6 +34,25 @@ describe('GET /api/admin/activity', () => {
     expect(response.status).toBe(404);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('access-control-allow-origin')).toBeNull();
+    expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
+  });
+
+  it('does not consume the limiter while admin is disabled', async () => {
+    const originalMax = process.env.RATE_LIMIT_ADMIN_SESSION_MAX;
+    process.env.RATE_LIMIT_ADMIN_SESSION_MAX = '1';
+    resetRateLimiter();
+    const headers = { 'x-real-ip': '203.0.113.22' };
+    delete process.env.ADMIN_TOKEN;
+    const disabled = await GET(new Request('https://echo.test/api/admin/activity', { headers }));
+    process.env.ADMIN_TOKEN = 'admin-secret';
+    const firstEnabled = await GET(new Request('https://echo.test/api/admin/activity', { headers }));
+    const secondEnabled = await GET(new Request('https://echo.test/api/admin/activity', { headers }));
+    if (originalMax === undefined) delete process.env.RATE_LIMIT_ADMIN_SESSION_MAX;
+    else process.env.RATE_LIMIT_ADMIN_SESSION_MAX = originalMax;
+
+    expect(disabled.status).toBe(404);
+    expect(firstEnabled.status).toBe(404);
+    expect(secondEnabled.status).toBe(429);
   });
 
   it('validates dates, retention range, and filter values before querying', async () => {
@@ -62,6 +82,11 @@ describe('GET /api/admin/activity', () => {
     expect(body.events[0]).toMatchObject({ ip: '203.0.113.10', lookupType: 'dns', actor: 'bot' });
     expect(body.legacy).toEqual([]);
     expect(body.events[0].partial).toBe(false);
+    expect(body.channels).toEqual([{ value: 'api', count: 1 }]);
+    expect(body.actors).toEqual([{ value: 'bot', count: 1 }]);
+    expect(body.outcomes).toEqual([{ value: 'success', count: 1 }]);
+    expect(body.partials).toEqual([{ value: 'complete', count: 1 }]);
+    expect(body.trend).toEqual([{ value: '2026-08-19', count: 1 }]);
   });
 
   it('accepts a zero limit as an empty page', async () => {
@@ -98,8 +123,13 @@ describe('GET /api/admin/activity', () => {
       countries: [],
       types: [],
       outcomes: [],
+      channels: [],
+      actors: [],
+      partials: [],
       events: [],
       legacy: [],
+      legacySummary: { count: 0, uniqueIps: 0 },
+      trend: [],
     });
     try {
       const response = await GET(new Request(

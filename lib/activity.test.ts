@@ -101,27 +101,30 @@ describe('activity events', () => {
     getDb().prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run('198.51.100.1', 'FR', now - 4_000);
 
     const result = queryActivity({ from: now - 5_000, to: now, limit: 4, offset: 0 });
-    expect(result.totalSuccessfulEvents).toBe(3);
-    expect(result.uniqueIps).toBe(3);
+    expect(result.totalSuccessfulEvents).toBe(2);
+    expect(result.uniqueIps).toBe(2);
     expect(result.countries).toEqual([
       { iso: 'DE', count: 1 },
-      { iso: 'FR', count: 1 },
       { iso: 'US', count: 2 },
     ]);
     expect(result.types).toEqual([
       { value: 'dns', count: 1 },
       { value: 'ip', count: 1 },
-      { value: 'legacy', count: 1 },
       { value: 'page', count: 1 },
     ]);
+    expect(result.channels).toEqual([{ value: 'api', count: 2 }, { value: 'ui', count: 1 }]);
+    expect(result.actors).toEqual([{ value: 'bot', count: 1 }, { value: 'browser', count: 1 }, { value: 'unknown', count: 1 }]);
     expect(result.outcomes).toEqual([
       { value: 'partial', count: 1 },
-      { value: 'success', count: 3 },
+      { value: 'success', count: 2 },
     ]);
-    expect(result.events).toHaveLength(4);
+    expect(result.partials).toEqual([{ value: 'complete', count: 2 }, { value: 'partial', count: 1 }]);
+    expect(result.events).toHaveLength(3);
     expect(result.events[0]).toMatchObject({ ip: '203.0.113.1', lookupType: 'page' });
-    expect(result.events[3]).toMatchObject({ source: 'legacy', lookupType: 'legacy', channel: 'unknown', actor: 'unknown', outcome: 'success' });
     expect(result.legacy).toHaveLength(1);
+    expect(result.legacy[0]).toMatchObject({ lookupType: 'legacy', channel: 'unknown', actor: 'unknown', outcome: 'unknown' });
+    expect(result.legacySummary).toEqual({ count: 1, uniqueIps: 1 });
+    expect(result.trend).toEqual([{ value: '1970-01-10', count: 3 }]);
   });
 
   it('applies time, type, channel, actor, and country filters', () => {
@@ -135,7 +138,7 @@ describe('activity events', () => {
 
     recordActivityEvent({ ip: '203.0.113.22', iso: 'GB', ts: 300, lookupType: 'ip', channel: 'unknown', actor: 'unknown', target: null, outcome: 'success', partial: false });
     getDb().prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run('203.0.113.23', 'GB', 300);
-    expect(queryActivity({ from: 300, to: 300, channel: 'unknown', actor: 'unknown', limit: 10 }).events).toHaveLength(2);
+    expect(queryActivity({ from: 300, to: 300, channel: 'unknown', actor: 'unknown', limit: 10 }).events).toHaveLength(1);
   });
 
   it('uses an exact strict retention cutoff and never prunes lookups', () => {
@@ -156,9 +159,14 @@ describe('activity events', () => {
       uniqueIps: 0,
       countries: [],
       types: [],
+      channels: [],
+      actors: [],
       outcomes: [],
+      partials: [],
       events: [],
       legacy: [],
+      legacySummary: { count: 0, uniqueIps: 0 },
+      trend: [],
     });
   });
 });

@@ -160,6 +160,23 @@ describe('sqlite lookup log', () => {
     ]);
   });
 
+  it('prunes activity events during database startup retention maintenance', () => {
+    const now = Date.now();
+    process.env.LOOKUP_RETENTION_DAYS = '1';
+    const cutoff = now - 86_400_000;
+    getDb().prepare('INSERT INTO activity_events (ip, iso, ts, lookup_type, channel, actor, outcome, partial) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('198.51.100.20', 'US', cutoff - 1, 'ip', 'api', 'browser', 'success', 0);
+    getDb().prepare('INSERT INTO activity_events (ip, iso, ts, lookup_type, channel, actor, outcome, partial) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run('198.51.100.21', 'US', cutoff, 'ip', 'api', 'browser', 'success', 0);
+
+    closeDb();
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+    try {
+      initDb(dbPath);
+      expect(getDb().prepare('SELECT ip FROM activity_events ORDER BY ip').all()).toEqual([{ ip: '198.51.100.21' }]);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
   it('closes a temporary connection after activity pruning without an active database', () => {
     const now = Date.now();
     process.env.LOOKUP_RETENTION_DAYS = '90';

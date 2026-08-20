@@ -1,4 +1,3 @@
-import { apiError } from '@/lib/api';
 import { queryActivity, type ActivityActor, type ActivityChannel, type ActivityLookupType, type ActivityOutcome } from '@/lib/activity';
 import { adminDateRange } from '@/lib/admin-date';
 import { adminJson, requireAdmin } from '@/lib/admin-route';
@@ -13,7 +12,7 @@ const actors = new Set<ActivityActor>(['browser', 'bot', 'unknown']);
 const outcomes = new Set<ActivityOutcome>(['success', 'partial']);
 
 function invalidInput(): Response {
-  return apiError(400, 'invalid input', 'invalid_input', { 'cache-control': 'no-store' });
+  return adminJson({ error: 'invalid input', code: 'invalid_input' }, 400);
 }
 
 function values(url: URL, name: string): string[] {
@@ -69,6 +68,6 @@ export async function GET(request: Request): Promise<Response> {
     }));
   } catch {
     console.error(JSON.stringify({ category: 'database_read', endpoint: '/api/admin/activity', status: 500, durationMs: Math.max(0, Date.now() - startedAt) }));
-    return apiError(500, 'internal server error', 'internal_error', { 'cache-control': 'no-store' });
+    return adminJson({ error: 'internal server error', code: 'internal_error' }, 500);
   }
 }

@@ -34,6 +34,7 @@ describe('POST /api/admin/login', () => {
     expect(await disabled.json()).toEqual({ error: 'not found', code: 'not_found' });
     expect(await wrong.json()).toEqual({ error: 'not found', code: 'not_found' });
     expect(disabled.headers.get('cache-control')).toBe('no-store');
+    expect(disabled.headers.get('x-robots-tag')).toBe('noindex, nofollow');
     expect(disabled.headers.get('access-control-allow-origin')).toBeNull();
   });
 
@@ -44,6 +45,7 @@ describe('POST /api/admin/login', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
     expect(response.headers.get('set-cookie')).toMatch(
       /^echo_admin_session=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+; Max-Age=28800; Path=\/; HttpOnly; Secure; SameSite=Strict$/,
     );

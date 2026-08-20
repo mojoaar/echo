@@ -3,6 +3,7 @@ import {
   adminCookieOptions,
   adminNoStoreHeaders,
   adminNotFound,
+  revokeAdminSession,
   createAdminSession,
   isAdminEnabled,
   verifyAdminSession,
@@ -105,6 +106,14 @@ describe('admin authentication', () => {
     expect(verifyAdminSession(session)).toEqual({ valid: false, expiresAt: expect.any(Number) });
   });
 
+  it('invalidates a revoked session before its signed expiry', () => {
+    process.env.ADMIN_TOKEN = 'admin-secret';
+    const session = createAdminSession();
+    expect(verifyAdminSession(session).valid).toBe(true);
+    revokeAdminSession(session);
+    expect(verifyAdminSession(session).valid).toBe(false);
+  });
+
   it('returns restrictive root-scoped cookie options', () => {
     expect(adminCookieOptions(3600)).toEqual({
       httpOnly: true,
@@ -120,6 +129,6 @@ describe('admin authentication', () => {
     expect(response.status).toBe(404);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(await response.json()).toEqual({ error: 'not found', code: 'not_found' });
-    expect(adminNoStoreHeaders()).toEqual({ 'cache-control': 'no-store' });
+    expect(adminNoStoreHeaders()).toEqual({ 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' });
   });
 });

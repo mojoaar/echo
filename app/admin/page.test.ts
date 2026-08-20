@@ -37,8 +37,13 @@ const emptyActivity = {
   countries: [],
   types: [],
   outcomes: [],
+  channels: [],
+  actors: [],
+  partials: [],
   events: [],
   legacy: [],
+  legacySummary: { count: 0, uniqueIps: 0 },
+  trend: [],
 };
 
 const emptyResources = {
@@ -184,7 +189,7 @@ describe('admin controls and data states', () => {
             channel: 'unknown',
             actor: 'unknown',
             target: null,
-            outcome: 'success',
+            outcome: 'unknown',
             partial: false,
           }],
         },
@@ -263,6 +268,24 @@ describe('admin controls and data states', () => {
 
     expect(html).toContain('Sampler status: stopped');
     expect(html).toContain('Last sampler error: sample_failed');
+  });
+
+  it('formats private timestamps in the configured timezone and shows other data storage', () => {
+    const activityHtml = renderToStaticMarkup(createElement(ActivityTable, {
+      result: {
+        ...emptyActivity,
+        events: [{ id: 1, source: 'activity', ip: '203.0.113.10', iso: 'US', ts: Date.parse('2026-08-20T10:00:00Z'), lookupType: 'ip', channel: 'api', actor: 'browser', target: null, outcome: 'success', partial: false }],
+      },
+      timezone: 'Europe/Copenhagen',
+    }));
+    const resourceHtml = renderToStaticMarkup(createElement(ResourceCards, {
+      resources: { ...emptyResources, current: { ts: 1, cpuPercent: null, memoryUsedBytes: null, memoryLimitBytes: null, dataUsedBytes: null, databaseBytes: null, walBytes: null, shmBytes: null, otherDataBytes: 2048, lookupRows: null, activityRows: null, uptimeSeconds: null, localTs: null, imageSizeBytes: null }, sampler: { ...emptyResources.sampler, lastSuccessTs: Date.parse('2026-08-20T10:00:00Z') } },
+      timezone: 'Europe/Copenhagen',
+    }));
+
+    expect(activityHtml).toContain('2026-08-20 12:00:00');
+    expect(resourceHtml).toContain('other /data 2.0 KB');
+    expect(resourceHtml).toContain('2026-08-20 12:00:00');
   });
 
   it('renders resource API errors without hiding the error detail', () => {

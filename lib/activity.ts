@@ -4,6 +4,7 @@ export type ActivityLookupType = 'page' | 'geo' | 'ip' | 'whois' | 'dns';
 export type ActivityChannel = 'ui' | 'api' | 'unknown';
 export type ActivityActor = 'browser' | 'bot' | 'unknown';
 export type ActivityOutcome = 'success' | 'partial';
+export type ActivityLegacyOutcome = 'unknown';
 
 export interface ActivityEvent {
   ip: string;
@@ -40,7 +41,7 @@ export interface ActivityRow {
   channel: ActivityChannel;
   actor: ActivityActor;
   target: string | null;
-  outcome: ActivityOutcome;
+  outcome: ActivityOutcome | ActivityLegacyOutcome;
   partial: boolean;
 }
 
@@ -60,8 +61,13 @@ export interface ActivityQueryResult {
   countries: ActivityCountryBreakdown[];
   types: ActivityBreakdown[];
   outcomes: ActivityBreakdown[];
+  channels: ActivityBreakdown[];
+  actors: ActivityBreakdown[];
+  partials: ActivityBreakdown[];
   events: ActivityRow[];
   legacy: ActivityRow[];
+  legacySummary: { count: number; uniqueIps: number };
+  trend: ActivityBreakdown[];
 }
 
 const lookupTypes = new Set<ActivityLookupType>(['page', 'geo', 'ip', 'whois', 'dns']);
@@ -150,7 +156,7 @@ function filterSql(options: ActivityQuery, source: 'activity' | 'legacy'): { sql
   if (options.country !== undefined) clauses.push('iso = ?'), params.push(options.country);
   if (options.outcome !== undefined) {
     if (source === 'legacy') {
-      if (options.outcome !== 'success') clauses.push('1 = 0');
+      clauses.push('1 = 0');
     } else if (!outcomes.has(options.outcome)) clauses.push('1 = 0');
     else clauses.push('outcome = ?'), params.push(options.outcome);
   }
@@ -166,27 +172,34 @@ function normalizedOffset(value: number | undefined): number {
   return Math.min(Math.max(Math.trunc(value ?? 0), 0), 10_000);
 }
 
+function localDay(ts: number): string {
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: process.env.TZ || 'UTC' }).format(new Date(ts));
+}
+
 export function queryActivity(options: ActivityQuery = {}): ActivityQueryResult {
   const db = getDb();
   const activityFilter = filterSql(options, 'activity');
   const legacyFilter = filterSql(options, 'legacy');
-  const union = `
-    SELECT id, 'activity' AS source, ip, iso, ts, lookup_type AS lookupType, channel, actor, target, outcome, partial
-    FROM activity_events WHERE ${activityFilter.sql}
-    UNION ALL
-    SELECT NULL AS id, 'legacy' AS source, ip, iso, ts, 'legacy' AS lookupType, 'unknown' AS channel, 'unknown' AS actor, NULL AS target, 'success' AS outcome, 0 AS partial
-    FROM lookups WHERE ${legacyFilter.sql}`;
-  const commonParams = [...activityFilter.params, ...legacyFilter.params];
-  const count = db.prepare(`SELECT COUNT(*) AS count FROM (${union}) WHERE outcome = 'success'`).get(...commonParams) as { count: number };
-  const unique = db.prepare(`SELECT COUNT(DISTINCT ip) AS count FROM (${union})`).get(...commonParams) as { count: number };
-  const countries = db.prepare(`SELECT iso, COUNT(*) AS count FROM (${union}) WHERE iso IS NOT NULL GROUP BY iso ORDER BY iso ASC`).all(...commonParams) as ActivityCountryBreakdown[];
-  const types = db.prepare(`SELECT lookupType AS value, COUNT(*) AS count FROM (${union}) GROUP BY lookupType ORDER BY value ASC`).all(...commonParams) as ActivityBreakdown[];
-  const outcomeRows = db.prepare(`SELECT outcome AS value, COUNT(*) AS count FROM (${union}) GROUP BY outcome ORDER BY value ASC`).all(...commonParams) as ActivityBreakdown[];
+  const activityUnion = `SELECT id, ip, iso, ts, lookup_type AS lookupType, channel, actor, target, outcome, partial FROM activity_events WHERE ${activityFilter.sql}`;
+  const count = db.prepare(`SELECT COUNT(*) AS count FROM (${activityUnion}) WHERE outcome = 'success'`).get(...activityFilter.params) as { count: number };
+  const unique = db.prepare(`SELECT COUNT(DISTINCT ip) AS count FROM (${activityUnion})`).get(...activityFilter.params) as { count: number };
+  const countries = db.prepare(`SELECT iso, COUNT(*) AS count FROM (${activityUnion}) WHERE iso IS NOT NULL GROUP BY iso ORDER BY iso ASC`).all(...activityFilter.params) as ActivityCountryBreakdown[];
+  const types = db.prepare(`SELECT lookupType AS value, COUNT(*) AS count FROM (${activityUnion}) GROUP BY lookupType ORDER BY value ASC`).all(...activityFilter.params) as ActivityBreakdown[];
+  const channelRows = db.prepare(`SELECT channel AS value, COUNT(*) AS count FROM (${activityUnion}) GROUP BY channel ORDER BY value ASC`).all(...activityFilter.params) as ActivityBreakdown[];
+  const actorRows = db.prepare(`SELECT actor AS value, COUNT(*) AS count FROM (${activityUnion}) GROUP BY actor ORDER BY value ASC`).all(...activityFilter.params) as ActivityBreakdown[];
+  const outcomeRows = db.prepare(`SELECT outcome AS value, COUNT(*) AS count FROM (${activityUnion}) GROUP BY outcome ORDER BY value ASC`).all(...activityFilter.params) as ActivityBreakdown[];
+  const partialRows = db.prepare(`SELECT CASE WHEN partial = 1 THEN 'partial' ELSE 'complete' END AS value, COUNT(*) AS count FROM (${activityUnion}) GROUP BY partial ORDER BY value ASC`).all(...activityFilter.params) as ActivityBreakdown[];
+  const trendRows = db.prepare(`SELECT ts FROM (${activityUnion}) ORDER BY ts DESC`).all(...activityFilter.params) as Array<{ ts: number }>;
+  trendRows.reverse();
+  const trendMap = new Map<string, number>();
+  for (const row of trendRows) trendMap.set(localDay(row.ts), (trendMap.get(localDay(row.ts)) ?? 0) + 1);
+  const trend = [...trendMap].map(([value, count]) => ({ value, count })).slice(-31);
+  const legacySummary = db.prepare(`SELECT COUNT(*) AS count, COUNT(DISTINCT ip) AS uniqueIps FROM lookups WHERE ${legacyFilter.sql}`).get(...legacyFilter.params) as { count: number; uniqueIps: number };
   const events = db
-    .prepare(`${union} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?`)
-    .all(...commonParams, normalizedLimit(options.limit), normalizedOffset(options.offset)) as Array<Omit<ActivityRow, 'partial'> & { partial: number }>;
+    .prepare(`SELECT id, 'activity' AS source, ip, iso, ts, lookup_type AS lookupType, channel, actor, target, outcome, partial FROM activity_events WHERE ${activityFilter.sql} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?`)
+    .all(...activityFilter.params, normalizedLimit(options.limit), normalizedOffset(options.offset)) as Array<Omit<ActivityRow, 'partial'> & { partial: number }>;
   const legacyRows = db
-    .prepare(`SELECT NULL AS id, 'legacy' AS source, ip, iso, ts, 'legacy' AS lookupType, 'unknown' AS channel, 'unknown' AS actor, NULL AS target, 'success' AS outcome, 0 AS partial FROM lookups WHERE ${legacyFilter.sql} ORDER BY ts DESC, ip ASC`)
+    .prepare(`SELECT NULL AS id, 'legacy' AS source, ip, iso, ts, 'legacy' AS lookupType, 'unknown' AS channel, 'unknown' AS actor, NULL AS target, 'unknown' AS outcome, 0 AS partial FROM lookups WHERE ${legacyFilter.sql} ORDER BY ts DESC, ip ASC`)
     .all(...legacyFilter.params) as Array<Omit<ActivityRow, 'partial'> & { partial: number }>;
   const normalizedEvents = events.map((row) => ({ ...row, partial: row.partial === 1 })) as ActivityRow[];
   const normalizedLegacy = legacyRows.map((row) => ({ ...row, partial: false })) as ActivityRow[];
@@ -195,9 +208,14 @@ export function queryActivity(options: ActivityQuery = {}): ActivityQueryResult 
     uniqueIps: unique.count,
     countries,
     types,
+    channels: channelRows,
+    actors: actorRows,
     outcomes: outcomeRows,
+    partials: partialRows,
     events: normalizedEvents,
     legacy: normalizedLegacy,
+    legacySummary,
+    trend,
   };
 }
 

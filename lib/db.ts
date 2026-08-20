@@ -39,6 +39,7 @@ function configuredRetentionDays(): number {
 function pruneWithDatabase(instance: Database.Database, nowMs: number): number {
   const cutoff = nowMs - configuredRetentionDays() * DAY_MS;
   const result = instance.prepare('DELETE FROM lookups WHERE ts < ?').run(cutoff);
+  instance.prepare('DELETE FROM activity_events WHERE ts < ?').run(cutoff);
   lastPrunedAt = nowMs;
   return result.changes;
 }

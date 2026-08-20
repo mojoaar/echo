@@ -3,6 +3,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 const DEFAULT_SESSION_TTL_SECONDS = 28_800;
 const SESSION_PURPOSE = 'echo-admin-session-v1';
 export const ADMIN_SESSION_COOKIE = 'echo_admin_session';
+const revokedSessions = new Map<string, number>();
 
 function adminToken(): string | undefined {
   const token = process.env.ADMIN_TOKEN;
@@ -62,6 +63,13 @@ export function createAdminSession(): string {
 
 export function verifyAdminSession(value: string | undefined): { valid: boolean; expiresAt: number } {
   if (!value || !adminToken()) return { valid: false, expiresAt: 0 };
+  const now = Date.now();
+  for (const [session, expiresAt] of revokedSessions) if (expiresAt <= now) revokedSessions.delete(session);
+  const revokedUntil = revokedSessions.get(value);
+  if (revokedUntil !== undefined) {
+    if (revokedUntil > now) return { valid: false, expiresAt: revokedUntil };
+    revokedSessions.delete(value);
+  }
   const parts = value.split('.');
   if (parts.length !== 2 || !parts[0] || !parts[1]) return { valid: false, expiresAt: 0 };
 
@@ -88,7 +96,14 @@ export function verifyAdminSession(value: string | undefined): { valid: boolean;
   if (!token) return { valid: false, expiresAt: 0 };
   const expectedSignature = sign(payload, token);
   if (!safeEqual(parts[1], expectedSignature)) return { valid: false, expiresAt };
-  return { valid: expiresAt > Date.now(), expiresAt };
+  return { valid: expiresAt > now, expiresAt };
+}
+
+export function revokeAdminSession(value: string): void {
+  const now = Date.now();
+  for (const [session, expiresAt] of revokedSessions) if (expiresAt <= now) revokedSessions.delete(session);
+  const verified = verifyAdminSession(value);
+  if (verified.expiresAt > now) revokedSessions.set(value, verified.expiresAt);
 }
 
 export function adminCookieOptions(maxAge: number): {
@@ -115,7 +130,7 @@ export function serializeAdminCookie(value: string, maxAge: number): string {
 }
 
 export function adminNoStoreHeaders(): Record<string, string> {
-  return { 'cache-control': 'no-store' };
+  return { 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' };
 }
 
 export function adminNotFound(): Response {

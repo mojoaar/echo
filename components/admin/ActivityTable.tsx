@@ -6,17 +6,28 @@ type ActivityTableProps = {
   hasNext?: boolean;
   onPrevious?: () => void;
   onNext?: () => void;
+  timezone?: string;
 };
 
-function timestamp(value: number): string {
-  return new Date(value).toISOString().replace('T', ' ').replace('.000Z', 'Z');
+function timestamp(value: number, timezone: string): string {
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: timezone,
+    dateStyle: 'short',
+    timeStyle: 'medium',
+  }).format(new Date(value));
 }
 
 function breakdown(value: string, count: number): string {
   return `${value}: ${count}`;
 }
 
-export default function ActivityTable({ result, page = 1, hasNext = false, onPrevious, onNext }: ActivityTableProps) {
+function trendPoints(result: ActivityQueryResult): string {
+  const trend = result.trend ?? [];
+  const max = Math.max(...trend.map((item) => item.count), 1);
+  return trend.map((item, index) => `${(index / Math.max(trend.length - 1, 1)) * 100},${40 - (item.count / max) * 34}`).join(' ');
+}
+
+export default function ActivityTable({ result, timezone = 'UTC', page = 1, hasNext = false, onPrevious, onNext }: ActivityTableProps) {
   const rows = [...result.events, ...result.legacy].sort((left, right) =>
     right.ts - left.ts || (right.id ?? -1) - (left.id ?? -1) || left.source.localeCompare(right.source),
   );
@@ -36,7 +47,15 @@ export default function ActivityTable({ result, page = 1, hasNext = false, onPre
       <div className="admin-breakdowns">
         {result.types.map((item) => <span key={`type-${item.value}`}>{breakdown(item.value, item.count)}</span>)}
         {result.countries.map((item) => <span key={`country-${item.iso}`}>{breakdown(item.iso, item.count)}</span>)}
-        {result.outcomes.map((item) => <span key={`outcome-${item.value}`}>{breakdown(item.value, item.count)}</span>)}
+        {(result.channels ?? []).map((item) => <span key={`channel-${item.value}`}>channel {breakdown(item.value, item.count)}</span>)}
+        {(result.actors ?? []).map((item) => <span key={`actor-${item.value}`}>actor {breakdown(item.value, item.count)}</span>)}
+        {(result.outcomes ?? []).map((item) => <span key={`outcome-${item.value}`}>outcome {breakdown(item.value, item.count)}</span>)}
+        {(result.partials ?? []).map((item) => <span key={`partial-${item.value}`}>status {breakdown(item.value, item.count)}</span>)}
+        {result.legacySummary?.count ? <span>legacy/unclassified: {result.legacySummary.count}</span> : null}
+      </div>
+      <div className="admin-activity-trend">
+        <div className="admin-chart-label">Activity trend</div>
+        {result.trend?.length ? <svg viewBox="0 0 100 40" role="img" aria-label="Activity trend" preserveAspectRatio="none"><polyline points={trendPoints(result)} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /></svg> : <p className="admin-empty">No activity trend for this range.</p>}
       </div>
       {rows.length ? (
         <div className="admin-table-wrap">
@@ -49,7 +68,7 @@ export default function ActivityTable({ result, page = 1, hasNext = false, onPre
                 <tr key={`${row.source}-${row.id ?? row.ts}-${index}`}>
                   <td>{row.ip}</td>
                   <td>{row.iso ?? '—'}</td>
-                  <td>{timestamp(row.ts)}</td>
+                  <td>{timestamp(row.ts, timezone)}</td>
                   <td>{row.source === 'legacy' ? 'legacy/unclassified' : row.lookupType}</td>
                   <td>{row.source === 'legacy' ? 'unknown' : row.channel}</td>
                   <td>{row.source === 'legacy' ? 'unknown' : row.actor}</td>

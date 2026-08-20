@@ -1,4 +1,4 @@
-import { adminNotFound, adminNoStoreHeaders, verifyAdminSession, ADMIN_SESSION_COOKIE } from './admin-auth';
+import { adminNotFound, adminNoStoreHeaders, isAdminEnabled, verifyAdminSession, ADMIN_SESSION_COOKIE } from './admin-auth';
 import { extractVisitorIp } from './ip';
 import { getRateLimiter } from './ratelimit';
 
@@ -14,6 +14,7 @@ function sessionValue(request: Request): string | undefined {
 }
 
 export function requireAdmin(request: Request): Response | null {
+  if (!isAdminEnabled()) return adminNotFound();
   if (verifyAdminSession(sessionValue(request)).valid) return null;
   const identity = extractVisitorIp(request.headers) ?? 'anonymous';
   const rate = getRateLimiter('admin-session').allow(identity);

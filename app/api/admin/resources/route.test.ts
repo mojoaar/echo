@@ -6,6 +6,7 @@ import { closeDb, getDb, initDb } from '@/lib/db';
 import { createAdminSession } from '@/lib/admin-auth';
 import * as db from '@/lib/db';
 import * as resources from '@/lib/resources';
+import { resetRateLimiter } from '@/lib/ratelimit';
 import { GET } from './route';
 
 let cookie = '';
@@ -25,6 +26,23 @@ afterAll(() => {
 });
 
 describe('GET /api/admin/resources', () => {
+  it('returns disabled 404 before consuming the session limiter', async () => {
+    process.env.RATE_LIMIT_ADMIN_SESSION_MAX = '1';
+    resetRateLimiter();
+    const headers = { 'x-real-ip': '203.0.113.23' };
+    delete process.env.ADMIN_TOKEN;
+    const disabled = await GET(new Request('https://echo.test/api/admin/resources', { headers }));
+    process.env.ADMIN_TOKEN = 'admin-secret';
+    const firstEnabled = await GET(new Request('https://echo.test/api/admin/resources', { headers }));
+    const secondEnabled = await GET(new Request('https://echo.test/api/admin/resources', { headers }));
+
+    expect(disabled.status).toBe(404);
+    expect(firstEnabled.status).toBe(404);
+    expect(secondEnabled.status).toBe(429);
+    delete process.env.RATE_LIMIT_ADMIN_SESSION_MAX;
+    resetRateLimiter();
+  });
+
   it('returns sampler status and bounded history for an authenticated session', async () => {
     const response = await GET(new Request('https://echo.test/api/admin/resources?from=2026-08-18&to=2026-08-19', { headers: { cookie } }));
     const body = await response.json();
@@ -36,6 +54,7 @@ describe('GET /api/admin/resources', () => {
     expect(body.history[0]).toMatchObject({ cpuPercent: 15.5, memoryUsedBytes: 120 });
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('access-control-allow-origin')).toBeNull();
+    expect(response.headers.get('x-robots-tag')).toBe('noindex, nofollow');
   });
 
   it('rejects resource history ranges over 30 days and future dates', async () => {

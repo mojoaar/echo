@@ -83,7 +83,7 @@ export default function AdminControls({ today, timezone, initialActivity, initia
       setError(null);
       setActivityError(null);
       setResourceError(null);
-      setActivity({ totalSuccessfulEvents: 0, uniqueIps: 0, countries: [], types: [], outcomes: [], events: [], legacy: [] });
+      setActivity({ totalSuccessfulEvents: 0, uniqueIps: 0, countries: [], types: [], channels: [], actors: [], outcomes: [], partials: [], events: [], legacy: [], legacySummary: { count: 0, uniqueIps: 0 }, trend: [] });
       try {
         const activityResponse = await fetch(sameOriginAdminPath(`/api/admin/activity?${params}`) as string, { credentials: 'same-origin', cache: 'no-store' });
         if (activityResponse.status === 404) throw new Error('expired');
@@ -155,7 +155,7 @@ export default function AdminControls({ today, timezone, initialActivity, initia
         {activityError ? <p className="error" role="alert">{activityError}</p> : null}
         {error ? <p className="error" role="alert">{error}</p> : null}
       </section>
-      <ActivityTable result={activity} page={page} hasNext={activity.events.length === 50} onPrevious={() => load(preset, from, to, page - 1)} onNext={() => load(preset, from, to, page + 1)} />
+      <ActivityTable result={activity} timezone={timezone} page={page} hasNext={activity.events.length === 50} onPrevious={() => load(preset, from, to, page - 1)} onNext={() => load(preset, from, to, page + 1)} />
       <ResourceCards resources={resources} timezone={timezone} error={resourceError} />
       <ResourceCharts history={resources.history} />
     </main>
