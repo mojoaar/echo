@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Homepage lookup statistics gain a range selector (24 hours default / 7 days / 30 days / all time) with per-range totals and top countries.
 - DNS lookup also resolves CNAME, SRV, and CAA records.
 
+### Fixed
+
+- Admin activity trend renders a flat line for single-day ranges instead of an isolated dot.
+
 ## [1.8.0] - 2026-08-20
 
 ### Changed

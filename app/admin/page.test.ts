@@ -218,6 +218,7 @@ describe('admin controls and data states', () => {
 
     expect(html).toContain('aria-label="Activity trend"');
     expect(html).toContain('admin-trend-dot');
+    expect(html).toContain('<polyline');
     expect(html).not.toContain('No activity trend for this range.');
   });
 

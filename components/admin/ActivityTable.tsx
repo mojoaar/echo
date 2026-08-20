@@ -61,10 +61,11 @@ export default function ActivityTable({ result, timezone = 'UTC', page = 1, hasN
           const points = trendPoints(result);
           const line = points.map((point) => `${point.x},${point.y}`).join(' ');
           const single = points.length === 1;
+          const plotLine = single ? `0,${points[0].y} 100,${points[0].y}` : line;
           return (
             <div className="admin-trend-plot">
               <svg viewBox="0 0 100 40" role="img" aria-label="Activity trend" preserveAspectRatio="none">
-                {points.length > 1 ? <polyline points={line} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /> : null}
+                <polyline points={plotLine} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
               </svg>
               {points.map((point, index) => (
                 <span
