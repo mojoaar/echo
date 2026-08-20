@@ -65,7 +65,10 @@ The CI supply-chain jobs require GitHub Actions to be able to download the pinne
 | `RATE_LIMIT_STATS_AUTH_MAX` / `RATE_LIMIT_STATS_AUTH_WINDOW_MS` | `5` / `60000` | Failed `/api/stats` authentication max and window |
 | `STATS_TOKEN` | _(unset)_ | Optional secret token protecting `/api/stats`; endpoint is disabled when unset |
 | `HEALTH_TOKEN` | _(unset)_ | Optional secret token for authenticated `/api/health` readiness |
+| `ADMIN_TOKEN` | _(unset)_ | Separate secret token for the private `/admin` dashboard and admin APIs; admin is disabled when unset |
+| `ADMIN_SESSION_TTL_SECONDS` | `28800` | Admin session lifetime in seconds; defaults to eight hours |
 | `LOOKUP_RETENTION_DAYS` | `90` | Private lookup retention period in days |
+| `ECHO_IMAGE_SIZE_BYTES` | _(unset)_ | Optional deployment-provided image size shown in the admin resource view; the container never queries the Docker host |
 | `UMAMI_SCRIPT_URL` | _(unset)_ | Umami script URL; when set together with `UMAMI_WEBSITE_ID`, the analytics script is injected |
 | `UMAMI_WEBSITE_ID` | _(unset)_ | Umami website id |
 
@@ -161,6 +164,33 @@ Then restart with `docker compose up -d` and query as shown above. The app does 
 Public liveness returns only `{ "status": "ok" }` from `/api/health` and does not write lookup rows or consume lookup rate limits. The container healthcheck uses this liveness route, not `/api/ip`. When `HEALTH_TOKEN` is configured, request `/api/health?readiness=1` with `Authorization: Bearer <token>` to receive restricted readiness details for the database, bundled MMDB files, application version, uptime, and retention configuration. Missing, invalid, or unset readiness credentials return `404`.
 
 Lookup IPs are retained privately for `LOOKUP_RETENTION_DAYS` days. Public history exposes aggregates only; raw IP statistics remain restricted to `/api/stats`.
+
+### Private admin dashboard
+
+When `ADMIN_TOKEN` is configured, `/admin` and its admin APIs are available to the owner. When it is empty or unset, the page and all admin APIs return `404`, so the deployment does not advertise that an admin surface exists. `ADMIN_TOKEN` is separate from `STATS_TOKEN`; configuring one does not enable or authenticate the other. Keep both values out of source control, shell history, URLs, browser storage, rendered HTML, and logs.
+
+Generate a long random admin token and store it in the `.env` file next to `docker-compose.yml`:
+
+```bash
+openssl rand -hex 32
+```
+
+```dotenv
+ADMIN_TOKEN=replace-with-the-generated-value
+ADMIN_SESSION_TTL_SECONDS=28800
+```
+
+After changing the token, restart the container. Token rotation changes the session signing material and invalidates every existing admin session, so operators must log in again. Successful login creates an opaque, `HttpOnly`, `Secure`, `SameSite=Strict` session cookie. The default session lifetime is eight hours and can be changed with `ADMIN_SESSION_TTL_SECONDS`.
+
+The dashboard displays exact visitor IPs to authenticated administrators. This is intentionally more sensitive than public aggregate history: anyone who can use the admin token can see retained addresses, lookup targets, timestamps, and attribution. Protect the reverse proxy, host firewall, `.env` file, persistent `echo-data` volume, backups, and browser session accordingly. The application does not add a Docker socket mount or require Docker-host access; resource sampling reads only cgroup and filesystem information available inside the Echo container. `ECHO_IMAGE_SIZE_BYTES` is optional deployment metadata because the image size cannot be queried from inside the container.
+
+Lookup activity is retained for 90 days by default, controlled by `LOOKUP_RETENTION_DAYS`. Resource samples are retained independently for 30 days. The dashboard uses container-local timestamps and the configured `TZ`, which defaults to `Europe/Copenhagen`, rather than the browser timezone. Container uptime resets when the container restarts. CPU may be unavailable until a second sample is available because the sampler needs a delta; unavailable resource values are shown as such.
+
+Only successfully completed visitor lookup activity is recorded. Invalid, failed, timed-out, and rate-limited requests do not create activity events. Partial page, WHOIS, and DNS operations may be recorded with an explicit partial outcome. Health checks, admin requests, static assets, `/api/history`, and `/api/stats` are excluded. Actor values are `browser`, `bot`, or `unknown`; bot classification is a heuristic based on the User-Agent and is not proof that a request came from an automated client. The dashboard labels counts as `unique IPs`, not unique people.
+
+Rows written before the activity-event model was introduced remain in the original `lookups` table. The dashboard shows those rows as `legacy/unclassified`: their historical source, channel, actor, and outcome cannot be reconstructed reliably. Only new activity events have reliable attribution fields.
+
+The dashboard is intended for a trusted owner path behind the existing TLS reverse proxy. It is server-rendered, non-indexable, same-origin, and not CORS-enabled. Do not expose port `3100` to untrusted networks or publish admin URLs containing secrets. The public `/api/health` liveness endpoint remains unauthenticated; when `HEALTH_TOKEN` is configured, restricted readiness details require `Authorization: Bearer <token>` and are otherwise indistinguishable from a missing route.
 
 ## Deployment
 

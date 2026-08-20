@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - DNS result timestamps now use strict ISO 8601 formatting with the browser's local timezone offset
 
+### Added
+
+- Private `/admin` dashboard for retained visitor activity and Echo container resources
+- Attributed activity events for successful page, geo, IP, WHOIS, and DNS lookups
+- In-process resource sampling with bounded history and optional deployment-provided image size
+
+### Security
+
+- Separate `ADMIN_TOKEN` authentication with signed expiring sessions for the admin surface
+
 ## [1.4.3] - 2026-08-19
 
 ### Fixed
