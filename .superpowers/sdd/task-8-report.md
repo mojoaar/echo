@@ -2,7 +2,7 @@
 
 ## Status
 
-Complete. Implemented Task 8 from baseline commit `abd7e27` and fixed all reviewer findings from review package `abd7e27..3b05944`.
+Complete. Implemented Task 8 from baseline commit `abd7e27`, fixed the prior review findings through commit `29d7c63`, and fixed the remaining token-leak race in this review-fix commit.
 
 ## Changes
 
@@ -13,7 +13,7 @@ Complete. Implemented Task 8 from baseline commit `abd7e27` and fixed all review
 - Split Next.js instrumentation into `instrumentation.ts` and Node-only `instrumentation.node.ts`, following the installed Next.js 16.3.1 guidance so `better-sqlite3` is not bundled into the Edge instrumentation graph during browser-test server startup.
 - Updated instrumentation unit setup to exercise the Node runtime path.
 - Explicitly blanked public/admin credential environment variables on every non-admin Playwright server and gave desktop/mobile admin projects separate configurable ports, dist directories, and SQLite databases.
-- Made custom-range coverage edit both date fields and assert the resulting activity query values; replaced arbitrary token-capture sleeping with deterministic waits for known admin requests and completed admin XHR/fetch bodies.
+- Made custom-range coverage edit both date fields and assert the resulting activity query values; the token-leak test now captures completed admin HTML, login/session/activity/resources response bodies and checks them, plus every observed request URL, for both `ADMIN_TOKEN` and `STATS_TOKEN`.
 - Extended mobile admin coverage to assert both Memory and `/data` charts.
 - Added a SQLite resource-retention regression test proving samples older than 30 days are deleted while the exact 30-day boundary is retained.
 - Made configured-probe CORS assertions follow the configured Playwright port.
@@ -23,6 +23,7 @@ Complete. Implemented Task 8 from baseline commit `abd7e27` and fixed all review
 - RED: the new focused admin coverage initially exposed the missing deterministic disabled-admin server and test harness startup failure. The initial Playwright server timed out because Next bundled `better-sqlite3` through `instrumentation.ts`.
 - GREEN: after the Node-only instrumentation split and dedicated admin server, the focused admin desktop run passed 13 tests and the focused mobile-admin run passed 1 test.
 - Reviewer-fix GREEN: focused admin desktop/mobile run passed 14 tests on non-default ports; focused configured-probe run passed 1 test on a non-default port; focused resource-retention test passed.
+- Remaining-review-fix GREEN: the deterministic token-leak test passed after awaiting `Response.finished()` before reading each completed response body; admin desktop and mobile suites passed again.
 
 ## Exact Verification
 
@@ -31,7 +32,7 @@ Commands and results:
 - `npm test`: passed, 35 files and 272 tests.
 - `npm run lint`: passed, `tsc --noEmit` exit 0.
 - `npm run coverage`: passed, statements 92%, branches 85.32%, functions 95.63%, lines 95.2%.
-- `npx playwright test` with non-default ports: 30/32 passed. All Task 8 admin tests passed (14/14), and configured probes passed in an isolated rerun (1/1). The two unrelated existing mobile checks include a persisted-theme failure in `mobile theme control remains keyboard accessible`; the mobile layout check passed. The initial configured-probe failure was corrected by making its CORS origin use the configured port, and the isolated rerun passed.
+- `npx playwright test` with non-default ports: 30/32 passed. All Task 8 admin checks passed (14/14: 13 desktop and 1 mobile), and configured probes passed in an isolated rerun (1/1). The only full-suite failure was the unrelated existing mobile check `mobile theme control remains keyboard accessible`, caused by persisted dark theme state; the other mobile check passed. The initial configured-probe failure was corrected by making its CORS origin use the configured port, and the isolated rerun passed.
 - `npm audit --audit-level=high`: passed, 0 vulnerabilities.
 - `docker compose config`: passed; default `ADMIN_TOKEN` and `HEALTH_TOKEN` rendered empty, session TTL 28800, retention 90 days.
 - `npm run build`: passed; production Next build completed with the existing dynamic filesystem tracing warning.
@@ -46,7 +47,9 @@ Commands and results:
 ## Commit
 
 - Required message: `test: verify private admin dashboard`
-- Commit SHA: `3b05944`
+- Prior Task 8 commit: `3b05944`
+- Subsequent provenance commit: `29d7c63`
+- Remaining review-fix commit: `6439eb7`
 
 ## Preserved Unrelated Changes
 
@@ -63,3 +66,4 @@ Commands and results:
 - Container resource sampler status is enabled but has no successful sample immediately after startup; CPU is intentionally unavailable until a second sample, matching the existing sampler contract.
 - The prior container named `echo` had to be removed to run the required image smoke test because Compose hard-codes `container_name: echo`; its named data volume was preserved.
 - Full browser verification still has the pre-existing mobile theme test failure when a shared browser profile starts in dark mode; this Task 8 change does not touch theme state or that test.
+- The full Playwright command is not a green gate yet because of that persisted-theme failure; all affected admin checks and the configured-probe rerun are green.
