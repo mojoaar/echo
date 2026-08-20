@@ -13,7 +13,9 @@ import {
   topIps,
   dailyCounts,
   pruneOldLookups,
+  pruneActivity,
   getRetentionDays,
+  isDbReady,
 } from './db';
 import { getDb } from './db';
 
@@ -156,6 +158,18 @@ describe('sqlite lookup log', () => {
       { ip: '198.51.100.2' },
       { ip: '198.51.100.3' },
     ]);
+  });
+
+  it('closes a temporary connection after activity pruning without an active database', () => {
+    const now = Date.now();
+    process.env.LOOKUP_RETENTION_DAYS = '90';
+    closeDb();
+    process.env.DB_PATH = dbPath;
+
+    expect(pruneActivity(now)).toBe(0);
+    expect(isDbReady()).toBe(false);
+
+    initDb(dbPath);
   });
 
   it('uses the supplied timestamp without scheduled pruning first', () => {

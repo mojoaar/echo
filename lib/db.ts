@@ -127,6 +127,12 @@ export function activityRetentionCutoff(nowMs = Date.now()): number {
 }
 
 export function pruneActivity(nowMs = Date.now()): number {
-  const instance = db ?? openDb(process.env.DB_PATH ?? 'echo.db');
-  return instance.prepare('DELETE FROM activity_events WHERE ts < ?').run(activityRetentionCutoff(nowMs)).changes;
+  if (db) return db.prepare('DELETE FROM activity_events WHERE ts < ?').run(activityRetentionCutoff(nowMs)).changes;
+
+  const instance = openDb(process.env.DB_PATH ?? 'echo.db');
+  try {
+    return instance.prepare('DELETE FROM activity_events WHERE ts < ?').run(activityRetentionCutoff(nowMs)).changes;
+  } finally {
+    closeDb();
+  }
 }

@@ -74,7 +74,13 @@ function asList<T>(value: T | T[] | undefined): T[] | undefined {
 }
 
 function requestPath(input: string | URL | Request): string {
-  if (typeof input === 'string') return input.split('?')[0] || '/';
+  if (typeof input === 'string') {
+    try {
+      return new URL(input).pathname || '/';
+    } catch {
+      return input.split('?')[0] || '/';
+    }
+  }
   return new URL(input instanceof Request ? input.url : input).pathname;
 }
 
@@ -171,7 +177,7 @@ export function queryActivity(options: ActivityQuery = {}): ActivityQueryResult 
     SELECT NULL AS id, 'legacy' AS source, ip, iso, ts, 'legacy' AS lookupType, 'unknown' AS channel, 'unknown' AS actor, NULL AS target, 'success' AS outcome, 0 AS partial
     FROM lookups WHERE ${legacyFilter.sql}`;
   const commonParams = [...activityFilter.params, ...legacyFilter.params];
-  const count = db.prepare(`SELECT COUNT(*) AS count FROM (${union})`).get(...commonParams) as { count: number };
+  const count = db.prepare(`SELECT COUNT(*) AS count FROM (${union}) WHERE outcome = 'success'`).get(...commonParams) as { count: number };
   const unique = db.prepare(`SELECT COUNT(DISTINCT ip) AS count FROM (${union})`).get(...commonParams) as { count: number };
   const countries = db.prepare(`SELECT iso, COUNT(*) AS count FROM (${union}) WHERE iso IS NOT NULL GROUP BY iso ORDER BY iso ASC`).all(...commonParams) as ActivityCountryBreakdown[];
   const types = db.prepare(`SELECT lookupType AS value, COUNT(*) AS count FROM (${union}) GROUP BY lookupType ORDER BY value ASC`).all(...commonParams) as ActivityBreakdown[];

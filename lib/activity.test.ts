@@ -37,8 +37,10 @@ describe('activity events', () => {
   it('resolves UI and API channels and excludes non-visitor paths', () => {
     expect(resolveActivityChannel('/')).toBe('ui');
     expect(resolveActivityChannel('/api/ip')).toBe('api');
+    expect(resolveActivityChannel('https://host/api/ip?target=8.8.8.8')).toBe('api');
     expect(resolveActivityChannel('/unexpected')).toBe('unknown');
     expect(isActivityPathExcluded('/api/health')).toBe(true);
+    expect(isActivityPathExcluded('https://host/api/health')).toBe(true);
     expect(isActivityPathExcluded('/admin')).toBe(true);
     expect(isActivityPathExcluded('/_next/static/chunk.js')).toBe(true);
     expect(isActivityPathExcluded('/api/history')).toBe(true);
@@ -85,7 +87,7 @@ describe('activity events', () => {
     getDb().prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run('198.51.100.1', 'FR', now - 4_000);
 
     const result = queryActivity({ from: now - 5_000, to: now, limit: 4, offset: 0 });
-    expect(result.totalSuccessfulEvents).toBe(4);
+    expect(result.totalSuccessfulEvents).toBe(3);
     expect(result.uniqueIps).toBe(3);
     expect(result.countries).toEqual([
       { iso: 'DE', count: 1 },
@@ -113,7 +115,7 @@ describe('activity events', () => {
     recordActivityEvent({ ip: '203.0.113.21', iso: 'DE', ts: 200, lookupType: 'dns', channel: 'api', actor: 'bot', target: 'example.com', outcome: 'partial', partial: true });
 
     const result = queryActivity({ from: 150, to: 250, type: 'dns', channel: 'api', actor: 'bot', country: 'DE', outcome: 'partial', limit: 50 });
-    expect(result.totalSuccessfulEvents).toBe(1);
+    expect(result.totalSuccessfulEvents).toBe(0);
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({ ip: '203.0.113.21', lookupType: 'dns', partial: true });
 
