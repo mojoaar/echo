@@ -86,4 +86,37 @@ describe('GET /api/admin/activity', () => {
       error.mockRestore();
     }
   });
+
+  it('uses configured timezone boundaries across daylight-saving transitions', async () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-09T12:00:00.000Z'));
+    const query = vi.spyOn(activity, 'queryActivity').mockReturnValue({
+      totalSuccessfulEvents: 0,
+      uniqueIps: 0,
+      countries: [],
+      types: [],
+      outcomes: [],
+      events: [],
+      legacy: [],
+    });
+    try {
+      const response = await GET(new Request(
+        'https://echo.test/api/admin/activity?from=2026-03-08&to=2026-03-08',
+        { headers: { cookie } },
+      ));
+
+      expect(response.status).toBe(200);
+      expect(query).toHaveBeenCalledWith(expect.objectContaining({
+        from: Date.parse('2026-03-08T05:00:00.000Z'),
+        to: Date.parse('2026-03-09T03:59:59.999Z'),
+      }));
+    } finally {
+      query.mockRestore();
+      vi.useRealTimers();
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    }
+  });
 });

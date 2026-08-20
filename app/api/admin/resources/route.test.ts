@@ -14,8 +14,8 @@ beforeAll(() => {
   process.env.ADMIN_TOKEN = 'admin-secret';
   const dir = mkdtempSync(join(tmpdir(), 'echo-admin-resources-'));
   initDb(join(dir, 'test.db'));
-  getDb().prepare('INSERT INTO resource_samples (ts, cpu_percent, memory_used_bytes) VALUES (?, ?, ?)').run(Date.parse('2026-08-19T10:00:00Z'), 12.5, 100);
-  getDb().prepare('INSERT INTO resource_samples (ts, cpu_percent, memory_used_bytes) VALUES (?, ?, ?)').run(Date.parse('2026-08-20T10:00:00Z'), 15.5, 120);
+  getDb().prepare('INSERT INTO resource_samples (ts, cpu_percent, memory_used_bytes) VALUES (?, ?, ?)').run(Date.parse('2026-08-18T10:00:00Z'), 12.5, 100);
+  getDb().prepare('INSERT INTO resource_samples (ts, cpu_percent, memory_used_bytes) VALUES (?, ?, ?)').run(Date.parse('2026-08-19T10:00:00Z'), 15.5, 120);
   cookie = `echo_admin_session=${createAdminSession()}`;
 });
 
@@ -26,7 +26,7 @@ afterAll(() => {
 
 describe('GET /api/admin/resources', () => {
   it('returns sampler status and bounded history for an authenticated session', async () => {
-    const response = await GET(new Request('https://echo.test/api/admin/resources?from=2026-08-19&to=2026-08-20', { headers: { cookie } }));
+    const response = await GET(new Request('https://echo.test/api/admin/resources?from=2026-08-18&to=2026-08-19', { headers: { cookie } }));
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -41,9 +41,24 @@ describe('GET /api/admin/resources', () => {
   it('rejects resource history ranges over 30 days and future dates', async () => {
     const tooWide = await GET(new Request('https://echo.test/api/admin/resources?from=2026-01-01&to=2026-02-01', { headers: { cookie } }));
     const future = await GET(new Request('https://echo.test/api/admin/resources?to=2999-01-01', { headers: { cookie } }));
+    const nearFuture = await GET(new Request('https://echo.test/api/admin/resources?from=2026-08-20&to=2026-08-21', { headers: { cookie } }));
 
     expect(tooWide.status).toBe(400);
     expect(future.status).toBe(400);
+    expect(nearFuture.status).toBe(400);
+  });
+
+  it('returns the latest current sample independently of the history range', async () => {
+    const response = await GET(new Request(
+      'https://echo.test/api/admin/resources?from=2026-08-18&to=2026-08-18',
+      { headers: { cookie } },
+    ));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.current).toMatchObject({ cpuPercent: 15.5, memoryUsedBytes: 120 });
+    expect(body.history).toHaveLength(1);
+    expect(body.history[0]).toMatchObject({ cpuPercent: 12.5, memoryUsedBytes: 100 });
   });
 
   it('returns a stable redacted internal error', async () => {

@@ -20,7 +20,7 @@ export interface ActivityEvent {
 export interface ActivityQuery {
   from?: number;
   to?: number;
-  type?: ActivityLookupType | 'legacy' | ActivityLookupType[] | 'legacy'[];
+  type?: ActivityLookupType | 'legacy' | Array<ActivityLookupType | 'legacy'>;
   channel?: ActivityChannel | ActivityChannel[];
   actor?: ActivityActor | ActivityActor[];
   country?: string;

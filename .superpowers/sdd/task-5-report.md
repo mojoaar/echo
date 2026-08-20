@@ -84,3 +84,48 @@ Implementation commit: `a0fb18f`
 - Login and admin data endpoints require HTTPS in deployment because the session cookie is intentionally `Secure`.
 - Resource history is bounded to 1,000 returned samples in addition to the 30-day date bound.
 - The existing admin session helper retains its previously documented base64url parsing behavior; route cookie parsing now safely handles malformed percent encoding.
+
+## Review Resolution
+
+Resolved all findings from review range `80be4b1..9850e14`.
+
+- Disabled admin login now returns `404` before reading or consuming the failed-login limiter.
+- Missing, invalid, and malformed admin sessions are rate-limited by trusted visitor identity; ordinary failures remain indistinguishable `404` responses.
+- Activity and resource date ranges now use one shared helper based on the configured container `TZ`, with calendar-day arithmetic and DST-safe local-midnight boundaries.
+- Resource `current` is selected from the latest sample independently of the requested history range.
+- Login and logout use shared admin cookie options and serialization.
+- Removed the unsafe legacy session-token assertion and unused session-cookie export.
+- Added regression coverage for limiter ordering, invalid-session limiting, DST boundaries, and range-independent resource current data.
+
+## Review Verification
+
+Focused regressions:
+
+```text
+npx vitest run app/api/admin/login/route.test.ts app/api/admin/session/route.test.ts app/api/admin/activity/route.test.ts app/api/admin/resources/route.test.ts
+Test Files 4 passed (4)
+Tests 21 passed (21)
+```
+
+Full tests:
+
+```text
+npm test
+Test Files 33 passed (33)
+Tests 255 passed (255)
+```
+
+Lint/type check:
+
+```text
+npm run lint
+tsc --noEmit exited 0
+```
+
+Diff validation:
+
+```text
+git diff --check exited 0
+```
+
+Review-fix commit: pending.

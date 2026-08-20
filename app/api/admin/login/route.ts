@@ -1,4 +1,4 @@
-import { createAdminSession, adminCookieOptions, adminNoStoreHeaders, adminNotFound, adminSessionTtlSeconds, isAdminEnabled, verifyAdminToken } from '@/lib/admin-auth';
+import { adminNotFound, adminNoStoreHeaders, adminSessionTtlSeconds, createAdminSession, isAdminEnabled, serializeAdminCookie, verifyAdminToken } from '@/lib/admin-auth';
 import { adminJson } from '@/lib/admin-route';
 import { extractVisitorIp } from '@/lib/ip';
 import { getRateLimiter } from '@/lib/ratelimit';
@@ -23,7 +23,7 @@ function failedLogin(request: Request): Response {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  if (!isAdminEnabled()) return failedLogin(request);
+  if (!isAdminEnabled()) return adminNotFound();
   if (request.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'application/x-www-form-urlencoded') {
     return failedLogin(request);
   }
@@ -36,7 +36,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!verifyAdminToken(token)) return failedLogin(request);
 
   const response = adminJson({ authenticated: true });
-  response.headers.set('set-cookie', `${'echo_admin_session'}=${createAdminSession()}; Max-Age=${adminCookieOptions(adminSessionTtlSeconds()).maxAge}; Path=/; HttpOnly; Secure; SameSite=Strict`);
+  response.headers.set('set-cookie', serializeAdminCookie(createAdminSession(), adminSessionTtlSeconds()));
   response.headers.set('cache-control', adminNoStoreHeaders()['cache-control']);
   return response;
 }

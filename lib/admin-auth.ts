@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 
 const DEFAULT_SESSION_TTL_SECONDS = 28_800;
 const SESSION_PURPOSE = 'echo-admin-session-v1';
+export const ADMIN_SESSION_COOKIE = 'echo_admin_session';
 
 function adminToken(): string | undefined {
   const token = process.env.ADMIN_TOKEN;
@@ -83,7 +84,9 @@ export function verifyAdminSession(value: string | undefined): { valid: boolean;
     return { valid: false, expiresAt: 0 };
   }
 
-  const expectedSignature = sign(payload, adminToken() as string);
+  const token = adminToken();
+  if (!token) return { valid: false, expiresAt: 0 };
+  const expectedSignature = sign(payload, token);
   if (!safeEqual(parts[1], expectedSignature)) return { valid: false, expiresAt };
   return { valid: expiresAt > Date.now(), expiresAt };
 }
@@ -100,6 +103,15 @@ export function adminCookieOptions(maxAge: number): {
 
 export function adminSessionTtlSeconds(): number {
   return sessionTtlSeconds();
+}
+
+export function serializeAdminCookie(value: string, maxAge: number): string {
+  const options = adminCookieOptions(maxAge);
+  const attributes = [`Max-Age=${options.maxAge}`, `Path=${options.path}`];
+  if (options.httpOnly) attributes.push('HttpOnly');
+  if (options.secure) attributes.push('Secure');
+  attributes.push(`SameSite=${options.sameSite === 'strict' ? 'Strict' : 'Lax'}`);
+  return `${ADMIN_SESSION_COOKIE}=${value}; ${attributes.join('; ')}`;
 }
 
 export function adminNoStoreHeaders(): Record<string, string> {

@@ -1,5 +1,6 @@
 import { apiError } from '@/lib/api';
-import { activityRetentionCutoff, queryActivity, type ActivityActor, type ActivityChannel, type ActivityLookupType, type ActivityOutcome } from '@/lib/activity';
+import { queryActivity, type ActivityActor, type ActivityChannel, type ActivityLookupType, type ActivityOutcome } from '@/lib/activity';
+import { adminDateRange } from '@/lib/admin-date';
 import { adminJson, requireAdmin } from '@/lib/admin-route';
 import { getRetentionDays } from '@/lib/db';
 import { isValidIp } from '@/lib/validate';
@@ -10,18 +11,9 @@ const lookupTypes = new Set<ActivityLookupType | 'legacy'>(['page', 'geo', 'ip',
 const channels = new Set<ActivityChannel>(['ui', 'api', 'unknown']);
 const actors = new Set<ActivityActor>(['browser', 'bot', 'unknown']);
 const outcomes = new Set<ActivityOutcome>(['success', 'partial']);
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-const DAY_MS = 86_400_000;
 
 function invalidInput(): Response {
   return apiError(400, 'invalid input', 'invalid_input', { 'cache-control': 'no-store' });
-}
-
-function parseDate(value: string | null): number | null {
-  if (!value || !datePattern.test(value)) return null;
-  const date = new Date(`${value}T00:00:00`);
-  const normalized = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  return Number.isFinite(date.getTime()) && normalized === value ? date.getTime() : null;
 }
 
 function values(url: URL, name: string): string[] {
@@ -42,22 +34,11 @@ function parseNonNegative(url: URL, name: string, fallback: number, maximum: num
   return Math.min(Number(raw), maximum);
 }
 
-function dateRange(url: URL): { from: number; to: number } | null {
-  const now = Date.now();
-  const fromValue = url.searchParams.get('from');
-  const toValue = url.searchParams.get('to');
-  const from = fromValue ? parseDate(fromValue) : activityRetentionCutoff(now);
-  const parsedTo = toValue ? parseDate(toValue) : now;
-  if (from === null || parsedTo === null || from > parsedTo || parsedTo > now) return null;
-  if (now - from > getRetentionDays() * DAY_MS) return null;
-  return { from, to: toValue ? parsedTo + DAY_MS - 1 : parsedTo };
-}
-
 export async function GET(request: Request): Promise<Response> {
   const unauthorized = requireAdmin(request);
   if (unauthorized) return unauthorized;
   const url = new URL(request.url);
-  const range = dateRange(url);
+  const range = adminDateRange(url, getRetentionDays());
   const type = parseList(url, 'type', lookupTypes);
   const channel = parseList(url, 'channel', channels);
   const actor = parseList(url, 'actor', actors);
@@ -77,7 +58,7 @@ export async function GET(request: Request): Promise<Response> {
     return adminJson(queryActivity({
       from: range.from,
       to: range.to,
-      type: type?.length && type.every((value): value is ActivityLookupType => value !== 'legacy') ? type : type as 'legacy'[] | undefined,
+      type,
       channel,
       actor,
       country,

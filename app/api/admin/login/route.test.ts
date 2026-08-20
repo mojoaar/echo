@@ -72,4 +72,19 @@ describe('POST /api/admin/login', () => {
     expect(second.headers.get('x-ratelimit-limit')).toBe('1');
     expect(second.headers.get('retry-after')).toMatch(/^\d+$/);
   });
+
+  it('does not consume the failed-login limiter while admin is disabled', async () => {
+    delete process.env.ADMIN_TOKEN;
+    process.env.RATE_LIMIT_ADMIN_LOGIN_MAX = '1';
+    const headers = { 'x-real-ip': '203.0.113.10' };
+
+    const disabled = await POST(request('wrong', headers));
+    process.env.ADMIN_TOKEN = 'correct-token';
+    const firstEnabledFailure = await POST(request('wrong', headers));
+    const secondEnabledFailure = await POST(request('wrong', headers));
+
+    expect(disabled.status).toBe(404);
+    expect(firstEnabledFailure.status).toBe(404);
+    expect(secondEnabledFailure.status).toBe(429);
+  });
 });
