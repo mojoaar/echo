@@ -128,4 +128,4 @@ Diff validation:
 git diff --check exited 0
 ```
 
-Review-fix commit: pending.
+Review-fix commit: `c51d97b`.
