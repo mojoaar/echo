@@ -45,6 +45,29 @@ describe('sqlite lookup log', () => {
     process.env.LOOKUP_RETENTION_DAYS = '1';
   });
 
+  it('creates activity and resource schemas idempotently without changing lookups', () => {
+    expect(() => initDb()).not.toThrow();
+    expect(() => initDb()).not.toThrow();
+
+    const tables = getDb()
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('lookups', 'activity_events', 'resource_samples') ORDER BY name")
+      .all();
+    expect(tables).toEqual([{ name: 'activity_events' }, { name: 'lookups' }, { name: 'resource_samples' }]);
+    expect(getDb().prepare('PRAGMA table_info(activity_events)').all()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'ip' }),
+        expect.objectContaining({ name: 'iso' }),
+        expect.objectContaining({ name: 'ts' }),
+        expect.objectContaining({ name: 'lookup_type' }),
+        expect.objectContaining({ name: 'channel' }),
+        expect.objectContaining({ name: 'actor' }),
+        expect.objectContaining({ name: 'target' }),
+        expect.objectContaining({ name: 'outcome' }),
+        expect.objectContaining({ name: 'partial' }),
+      ]),
+    );
+  });
+
   it('inserts lookups and timestamps them', async () => {
     const before = Date.now();
     const row = insertLookup('8.8.8.8', 'US');

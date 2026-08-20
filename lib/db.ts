@@ -121,3 +121,12 @@ export function dailyCounts(sinceTs: number, days = 7): { day: string; count: nu
     )
     .all(sinceTs, days) as { day: string; count: number }[];
 }
+
+export function activityRetentionCutoff(nowMs = Date.now()): number {
+  return nowMs - getRetentionDays() * DAY_MS;
+}
+
+export function pruneActivity(nowMs = Date.now()): number {
+  const instance = db ?? openDb(process.env.DB_PATH ?? 'echo.db');
+  return instance.prepare('DELETE FROM activity_events WHERE ts < ?').run(activityRetentionCutoff(nowMs)).changes;
+}
