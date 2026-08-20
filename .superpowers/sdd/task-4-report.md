@@ -87,11 +87,11 @@ Result: exited 0 with no whitespace errors.
 
 ## Commit
 
-Pending until the report and intended files are staged:
-
 ```text
 feat: add container resource sampler
 ```
+
+Commit SHA: `406296a`
 
 ## Concerns
 
