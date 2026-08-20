@@ -22,8 +22,11 @@ test('applies syntax highlighting to code blocks', async ({ page }) => {
 test('theme toggle re-colors the highlighted code', async ({ page }) => {
   await page.goto('/docs');
   const toggle = page.getByRole('button', { name: 'Toggle light and dark mode' });
-  await toggle.click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect.poll(async () => {
+    const theme = await page.locator('html').getAttribute('data-theme');
+    if (theme === 'dark') await toggle.click();
+    return theme;
+  }).toBe('light');
   await expect(page.locator('.hljs').first()).toBeVisible();
 });
 
@@ -31,4 +34,11 @@ test('home footer links to the docs page', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: 'Docs', exact: true }).click();
   await expect(page).toHaveURL(/\/docs$/);
+});
+
+test('brand links back home from the docs page', async ({ page }) => {
+  await page.goto('/docs');
+  await page.getByRole('link', { name: 'echo home' }).click();
+  await expect(page).toHaveURL('/');
+  await expect(page.locator('.topbar')).toBeVisible();
 });

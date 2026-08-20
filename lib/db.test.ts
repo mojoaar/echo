@@ -6,7 +6,6 @@ import Database from 'better-sqlite3';
 import {
   initDb,
   closeDb,
-  insertLookup,
   countLookups,
   countSince,
   topCountryCodes,
@@ -16,8 +15,16 @@ import {
   pruneActivity,
   getRetentionDays,
   isDbReady,
+  readDatabaseBreakdown,
 } from './db';
 import { getDb } from './db';
+
+const insertActivity = (ip: string, iso: string | null, ts: number) =>
+  getDb()
+    .prepare(
+      "INSERT INTO activity_events (ip, iso, ts, lookup_type, channel, actor, target, outcome, partial) VALUES (?, ?, ?, 'page', 'ui', 'browser', NULL, 'success', 0)",
+    )
+    .run(ip, iso, ts);
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let dbPath: string;
@@ -70,22 +77,20 @@ describe('sqlite lookup log', () => {
     );
   });
 
-  it('inserts lookups and timestamps them', async () => {
+  it('records activity events and timestamps them', async () => {
     const before = Date.now();
-    const row = insertLookup('8.8.8.8', 'US');
-    expect(row.id).toBeGreaterThan(0);
-    expect(row.ts).toBeGreaterThanOrEqual(before);
+    insertActivity('8.8.8.8', 'US', before);
     expect(countLookups()).toBe(1);
     await sleep(5);
   });
 
-  it('counts lookups since a timestamp', async () => {
-    insertLookup('1.1.1.1', 'AU');
-    insertLookup('9.9.9.9', 'DE');
+  it('counts activity events since a timestamp', async () => {
+    insertActivity('1.1.1.1', 'AU', Date.now());
+    insertActivity('9.9.9.9', 'DE', Date.now());
     await sleep(5);
     const now = Date.now();
     await sleep(5);
-    insertLookup('2.2.2.2', 'DE');
+    insertActivity('2.2.2.2', 'DE', now);
     expect(countSince(now)).toBe(1);
     expect(countSince(0)).toBe(4);
   });
@@ -99,7 +104,7 @@ describe('sqlite lookup log', () => {
   });
 
   it('lists top ips by descending count', () => {
-    insertLookup('8.8.8.8', 'US');
+    insertActivity('8.8.8.8', 'US', Date.now());
     const top = topIps(10);
     expect(top.length).toBeGreaterThan(0);
     expect(top.every((r) => r.ip && r.count >= 1)).toBe(true);
@@ -122,8 +127,8 @@ describe('sqlite lookup log', () => {
     process.env.LOOKUP_RETENTION_DAYS = '90';
     const midnight = Math.floor(Date.now() / 86_400_000) * 86_400_000;
     const before = new Map(dailyCounts(midnight - 1, 2).map((row) => [row.day, row.count]));
-    getDb().prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run('203.0.113.1', 'US', midnight - 1);
-    getDb().prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run('203.0.113.2', 'US', midnight);
+    getDb().prepare('INSERT INTO activity_events (ip, iso, ts, lookup_type, channel, actor, target, outcome, partial) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run('203.0.113.1', 'US', midnight - 1, 'page', 'ui', 'browser', null, 'success', 0);
+    getDb().prepare('INSERT INTO activity_events (ip, iso, ts, lookup_type, channel, actor, target, outcome, partial) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run('203.0.113.2', 'US', midnight, 'page', 'ui', 'browser', null, 'success', 0);
     const daily = dailyCounts(midnight - 1, 2);
     const previousDay = new Date(midnight - 1).toISOString().slice(0, 10);
     const currentDay = new Date(midnight).toISOString().slice(0, 10);
@@ -133,7 +138,7 @@ describe('sqlite lookup log', () => {
   });
 
   it('keeps null country values out of country aggregates', () => {
-    insertLookup('192.0.2.1', null);
+    insertActivity('192.0.2.1', null, Date.now());
     const top = topCountryCodes(10);
     expect(top.some((country) => country.iso === null)).toBe(false);
   });
@@ -171,7 +176,7 @@ describe('sqlite lookup log', () => {
     vi.spyOn(Date, 'now').mockReturnValue(now);
     try {
       initDb(dbPath);
-      expect(getDb().prepare('SELECT ip FROM activity_events ORDER BY ip').all()).toEqual([{ ip: '198.51.100.21' }]);
+      expect(getDb().prepare('SELECT ip FROM activity_events WHERE ip LIKE ? ORDER BY ip').all('198.51.100.%')).toEqual([{ ip: '198.51.100.21' }]);
     } finally {
       vi.restoreAllMocks();
     }
@@ -254,5 +259,17 @@ describe('sqlite lookup log', () => {
     } finally {
       clock.mockRestore();
     }
+  });
+
+  it('breaks the database down by table and index from dbstat', () => {
+    const breakdown = readDatabaseBreakdown();
+    expect(breakdown).not.toBeNull();
+    const tableNames = (breakdown?.items ?? []).filter((item) => item.kind === 'table').map((item) => item.name);
+    expect(tableNames).toEqual(expect.arrayContaining(['activity_events', 'lookups', 'resource_samples']));
+    expect((breakdown?.items ?? []).some((item) => item.kind === 'index')).toBe(true);
+    expect(breakdown?.pageSize).toBeGreaterThan(0);
+    expect(breakdown?.pageCount).toBeGreaterThan(0);
+    expect(breakdown?.fileBytes).toBe(breakdown!.pageSize * breakdown!.pageCount);
+    expect(breakdown?.freelistBytes).toBe(breakdown!.freelistCount * breakdown!.pageSize);
   });
 });

@@ -6,7 +6,7 @@ import { isValidIp } from '@/lib/validate';
 
 export const dynamic = 'force-dynamic';
 
-const lookupTypes = new Set<ActivityLookupType | 'legacy'>(['page', 'geo', 'ip', 'whois', 'dns', 'legacy']);
+const lookupTypes = new Set<ActivityLookupType>(['page', 'geo', 'ip', 'whois', 'dns']);
 const channels = new Set<ActivityChannel>(['ui', 'api', 'unknown']);
 const actors = new Set<ActivityActor>(['browser', 'bot', 'unknown']);
 const outcomes = new Set<ActivityOutcome>(['success', 'partial']);

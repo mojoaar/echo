@@ -98,7 +98,6 @@ describe('activity events', () => {
     for (const [ip, iso, ts, lookupType, channel, actor, target, outcome, partial] of events) {
       recordActivityEvent({ ip, iso, ts, lookupType, channel, actor, target, outcome, partial });
     }
-    getDb().prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run('198.51.100.1', 'FR', now - 4_000);
 
     const result = queryActivity({ from: now - 5_000, to: now, limit: 4, offset: 0 });
     expect(result.totalSuccessfulEvents).toBe(2);
@@ -121,26 +120,22 @@ describe('activity events', () => {
     expect(result.partials).toEqual([{ value: 'complete', count: 2 }, { value: 'partial', count: 1 }]);
     expect(result.events).toHaveLength(3);
     expect(result.events[0]).toMatchObject({ ip: '203.0.113.1', lookupType: 'page' });
-    expect(result.legacy).toHaveLength(1);
-    expect(result.legacy[0]).toMatchObject({ lookupType: 'legacy', channel: 'unknown', actor: 'unknown', outcome: 'unknown' });
-    expect(result.legacySummary).toEqual({ count: 1, uniqueIps: 1 });
     expect(result.trend).toEqual([{ value: '1970-01-10', count: 3 }]);
   });
 
-  it('bounds legacy rows to the requested page window', () => {
+  it('bounds attributed events to the requested page window', () => {
     const now = 10 * dayMs;
     for (let index = 0; index < 3; index += 1) {
-      getDb().prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run(`198.51.100.${index + 1}`, 'US', now - index);
+      recordActivityEvent({ ip: `198.51.100.${index + 1}`, iso: 'US', ts: now - index, lookupType: 'ip', channel: 'api', actor: 'bot', target: null, outcome: 'success', partial: false });
     }
 
     const firstPage = queryActivity({ from: now - 10, to: now, limit: 1, offset: 0 });
     const secondPage = queryActivity({ from: now - 10, to: now, limit: 1, offset: 1 });
 
-    expect(firstPage.legacy).toHaveLength(1);
-    expect(secondPage.legacy).toHaveLength(1);
-    expect(firstPage.legacy[0].ip).toBe('198.51.100.1');
-    expect(secondPage.legacy[0].ip).toBe('198.51.100.2');
-    expect(firstPage.legacySummary).toEqual({ count: 3, uniqueIps: 3 });
+    expect(firstPage.events).toHaveLength(1);
+    expect(secondPage.events).toHaveLength(1);
+    expect(firstPage.events[0].ip).toBe('198.51.100.1');
+    expect(secondPage.events[0].ip).toBe('198.51.100.2');
   });
 
   it('aggregates trend points in SQL without materializing matching timestamps', () => {
@@ -174,7 +169,6 @@ describe('activity events', () => {
     expect(result.events[0]).toMatchObject({ ip: '203.0.113.21', lookupType: 'dns', partial: true });
 
     recordActivityEvent({ ip: '203.0.113.22', iso: 'GB', ts: 300, lookupType: 'ip', channel: 'unknown', actor: 'unknown', target: null, outcome: 'success', partial: false });
-    getDb().prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run('203.0.113.23', 'GB', 300);
     expect(queryActivity({ from: 300, to: 300, channel: 'unknown', actor: 'unknown', limit: 10 }).events).toHaveLength(1);
   });
 
@@ -201,8 +195,6 @@ describe('activity events', () => {
       outcomes: [],
       partials: [],
       events: [],
-      legacy: [],
-      legacySummary: { count: 0, uniqueIps: 0 },
       trend: [],
     });
   });

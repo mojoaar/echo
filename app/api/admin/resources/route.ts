@@ -1,5 +1,5 @@
 import { adminDateRange } from '@/lib/admin-date';
-import { getDb } from '@/lib/db';
+import { getDb, readDatabaseBreakdown } from '@/lib/db';
 import { adminJson, requireAdmin } from '@/lib/admin-route';
 import { getResourceSamplerStatus } from '@/lib/resources';
 
@@ -43,7 +43,12 @@ export async function GET(request: Request): Promise<Response> {
     const rows = db.prepare(
       'SELECT ts, cpu_percent, memory_used_bytes, memory_limit_bytes, data_used_bytes, database_bytes, wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts, image_size_bytes FROM resource_samples WHERE ts >= ? AND ts <= ? ORDER BY ts DESC LIMIT ?',
     ).all(range.from, range.to, 1_000) as Array<Record<string, unknown>>;
-    return adminJson({ current: current ? resourceRow(current) : null, sampler: getResourceSamplerStatus(), history: rows.map(resourceRow) });
+    return adminJson({
+      current: current ? resourceRow(current) : null,
+      sampler: getResourceSamplerStatus(),
+      history: rows.map(resourceRow),
+      storage: readDatabaseBreakdown(),
+    });
   } catch {
     console.error(JSON.stringify({ category: 'database_read', endpoint: '/api/admin/resources', status: 500, durationMs: Math.max(0, Date.now() - startedAt) }));
     return adminJson({ error: 'internal server error', code: 'internal_error' }, 500);

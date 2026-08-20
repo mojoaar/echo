@@ -25,9 +25,9 @@ describe('GET /api/health', () => {
     closeDb();
   });
 
-  it('returns minimal public liveness without touching lookup writes', async () => {
+  it('returns minimal public liveness without touching write APIs', async () => {
     recordActivityEvent.mockClear();
-    const insert = vi.spyOn(db, 'insertLookup');
+    const insert = vi.spyOn(db, 'insertResourceSample');
     const response = await GET(new Request('http://localhost/api/health'));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: 'ok' });
@@ -60,7 +60,7 @@ describe('GET /api/health', () => {
 
   it('returns the restricted readiness contract for a valid bearer token', async () => {
     recordActivityEvent.mockClear();
-    const insert = vi.spyOn(db, 'insertLookup');
+    const insert = vi.spyOn(db, 'insertResourceSample');
     const response = await GET(new Request('http://localhost/api/health?readiness=1', {
       headers: { authorization: 'Bearer health-secret' },
     }));

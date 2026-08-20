@@ -23,7 +23,7 @@ export default function ThemeToggle() {
   }
 
   return (
-    <button className="theme-toggle" onClick={toggle} aria-label="Toggle light and dark mode">
+    <button type="button" className="theme-toggle" onClick={toggle} aria-label="Toggle light and dark mode">
       {theme === 'dark' ? '☀' : '☾'}
     </button>
   );

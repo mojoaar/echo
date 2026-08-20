@@ -1,4 +1,5 @@
 import type { AdminResourceRow } from './types';
+import { bytes } from './ResourceCards';
 
 type ResourceChartsProps = {
   history: AdminResourceRow[];
@@ -14,10 +15,17 @@ function points(history: AdminResourceRow[], key: 'memoryUsedBytes' | 'dataUsedB
   }).filter(Boolean).join(' ');
 }
 
-function Chart({ label, points: chartPoints }: { label: string; points: string }) {
+function summary(history: AdminResourceRow[], key: 'memoryUsedBytes' | 'dataUsedBytes'): string {
+  const values = history.map((row) => row[key]).filter((value): value is number => value !== null);
+  if (!values.length) return 'no samples';
+  return `now ${bytes(values[values.length - 1])} · peak ${bytes(Math.max(...values))} · min ${bytes(Math.min(...values))}`;
+}
+
+function Chart({ label, points: chartPoints, legend }: { label: string; points: string; legend: string }) {
   return (
     <div className="admin-chart">
       <div className="admin-chart-label">{label}</div>
+      <div className="admin-chart-summary">{legend}</div>
       {chartPoints ? <svg viewBox="0 0 100 40" role="img" aria-label={`${label} history`} preserveAspectRatio="none"><polyline points={chartPoints} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /></svg> : <p className="admin-empty">No samples available.</p>}
     </div>
   );
@@ -34,8 +42,8 @@ export default function ResourceCharts({ history }: ResourceChartsProps) {
         <p className="admin-note">Up to 30 days of five-minute samples.</p>
       </div>
       <div className="admin-charts">
-        <Chart label="Memory" points={points(history, 'memoryUsedBytes')} />
-        <Chart label="/data" points={points(history, 'dataUsedBytes')} />
+        <Chart label="Memory" points={points(history, 'memoryUsedBytes')} legend={summary(history, 'memoryUsedBytes')} />
+        <Chart label="/data" points={points(history, 'dataUsedBytes')} legend={summary(history, 'dataUsedBytes')} />
       </div>
     </section>
   );

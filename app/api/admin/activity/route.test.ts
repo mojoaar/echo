@@ -83,7 +83,6 @@ describe('GET /api/admin/activity', () => {
     expect(response.status).toBe(200);
     expect(body.events).toHaveLength(1);
     expect(body.events[0]).toMatchObject({ ip: '203.0.113.10', lookupType: 'dns', actor: 'bot' });
-    expect(body.legacy).toEqual([]);
     expect(body.events[0].partial).toBe(false);
     expect(body.channels).toEqual([{ value: 'api', count: 1 }]);
     expect(body.actors).toEqual([{ value: 'bot', count: 1 }]);
@@ -130,8 +129,6 @@ describe('GET /api/admin/activity', () => {
       actors: [],
       partials: [],
       events: [],
-      legacy: [],
-      legacySummary: { count: 0, uniqueIps: 0 },
       trend: [],
     });
     try {

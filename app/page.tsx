@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import { extractVisitorIp, normalizeIp } from '@/lib/ip';
 import { isValidIp } from '@/lib/validate';
 import { lookupInfo } from '@/lib/geo';
-import { insertLookup, countLookups, countSince, topCountryCodes } from '@/lib/db';
+import { countLookups, countSince, topCountryCodes } from '@/lib/db';
 import type { IpInfo } from '@/lib/types';
 import CopyButton from '@/components/ui/CopyButton';
 import CopyLinkButton from '@/components/ui/CopyLinkButton';
@@ -117,12 +117,6 @@ export default async function Page({
   let info: IpInfo | null = null;
   if (target) {
     info = await lookupInfo(target, { hostname: true });
-    const startedAt = Date.now();
-    try {
-      insertLookup(info.ip, info.country);
-    } catch {
-      logOperationalEvent({ category: 'database_write', endpoint: 'page', status: 'error', durationMs: Date.now() - startedAt });
-    }
     if (!isActivityPathExcluded('/')) try {
       recordActivityEvent({
         ip: visitorIp ?? 'unknown',

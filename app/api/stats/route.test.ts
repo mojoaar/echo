@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { initDb, closeDb, insertLookup } from '@/lib/db';
+import { initDb, closeDb, getDb } from '@/lib/db';
 import * as db from '@/lib/db';
 import { resetRateLimiter } from '@/lib/ratelimit';
 import { GET } from './route';
@@ -11,12 +11,19 @@ const { recordActivityEvent } = vi.hoisted(() => ({ recordActivityEvent: vi.fn()
 
 vi.mock('@/lib/activity', () => ({ recordActivityEvent }));
 
+const insertActivity = (ip: string, iso: string) =>
+  getDb()
+    .prepare(
+      "INSERT INTO activity_events (ip, iso, ts, lookup_type, channel, actor, target, outcome, partial) VALUES (?, ?, ?, 'ip', 'api', 'browser', NULL, 'success', 0)",
+    )
+    .run(ip, iso, Date.now());
+
 describe('GET /api/stats', () => {
   beforeAll(() => {
     const dir = mkdtempSync(join(tmpdir(), 'echo-stats-'));
     initDb(join(dir, 'test.db'));
-    insertLookup('8.8.8.8', 'US');
-    insertLookup('1.1.1.1', 'AU');
+    insertActivity('8.8.8.8', 'US');
+    insertActivity('1.1.1.1', 'AU');
   });
 
   afterAll(() => {

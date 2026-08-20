@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { GET } from './route';
-import { closeDb, initDb, insertLookup } from '@/lib/db';
+import { closeDb, initDb, getDb } from '@/lib/db';
 import { resetRateLimiter } from '@/lib/ratelimit';
 import * as db from '@/lib/db';
 
@@ -11,6 +11,13 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const { recordActivityEvent } = vi.hoisted(() => ({ recordActivityEvent: vi.fn() }));
 
 vi.mock('@/lib/activity', () => ({ recordActivityEvent }));
+
+const insertActivity = (ip: string, iso: string) =>
+  getDb()
+    .prepare(
+      "INSERT INTO activity_events (ip, iso, ts, lookup_type, channel, actor, target, outcome, partial) VALUES (?, ?, ?, 'ip', 'api', 'browser', NULL, 'success', 0)",
+    )
+    .run(ip, iso, Date.now());
 
 describe('GET /api/history', () => {
   beforeAll(() => {
@@ -25,10 +32,10 @@ describe('GET /api/history', () => {
 
   it('returns aggregate lookup stats', async () => {
     recordActivityEvent.mockClear();
-    insertLookup('8.8.8.8', 'US');
-    insertLookup('1.1.1.1', 'AU');
+    insertActivity('8.8.8.8', 'US');
+    insertActivity('1.1.1.1', 'AU');
     await sleep(5);
-    insertLookup('9.9.9.9', 'US');
+    insertActivity('9.9.9.9', 'US');
     const res = await GET(
       new Request('http://localhost/api/history', { headers: { 'x-real-ip': '203.0.113.5' } })
     );

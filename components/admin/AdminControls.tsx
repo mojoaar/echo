@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import ActivityTable from './ActivityTable';
 import ResourceCards from './ResourceCards';
 import ResourceCharts from './ResourceCharts';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 import type { AdminActivityResult, AdminResources } from './types';
 
 type Preset = 'daily' | 'weekly' | 'monthly' | 'custom';
@@ -21,6 +22,7 @@ const emptyResources: AdminResources = {
   current: null,
   sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null },
   history: [],
+  storage: null,
 };
 
 async function apiErrorMessage(response: Response, fallback: string): Promise<string> {
@@ -83,7 +85,7 @@ export default function AdminControls({ today, timezone, initialActivity, initia
       setError(null);
       setActivityError(null);
       setResourceError(null);
-      setActivity({ totalSuccessfulEvents: 0, uniqueIps: 0, countries: [], types: [], channels: [], actors: [], outcomes: [], partials: [], events: [], legacy: [], legacySummary: { count: 0, uniqueIps: 0 }, trend: [] });
+      setActivity({ totalSuccessfulEvents: 0, uniqueIps: 0, countries: [], types: [], channels: [], actors: [], outcomes: [], partials: [], events: [], trend: [] });
       try {
         const activityResponse = await fetch(sameOriginAdminPath(`/api/admin/activity?${params}`) as string, { credentials: 'same-origin', cache: 'no-store' });
         if (activityResponse.status === 404) throw new Error('expired');
@@ -131,7 +133,11 @@ export default function AdminControls({ today, timezone, initialActivity, initia
     <main className="admin-content">
       <header className="admin-topbar">
         <div><p className="admin-kicker">echo / private</p><h1>Admin dashboard</h1><p className="admin-note">Container timezone: {timezone}</p></div>
-        <button className="btn" type="button" onClick={logout}>Log out</button>
+        <div className="admin-topbar-actions">
+          <ThemeToggle />
+          <button className="btn" type="button" disabled={pending} onClick={() => load(preset, from, to, page)}>{pending ? 'Loading...' : 'Refresh'}</button>
+          <button className="btn" type="button" onClick={logout}>Log out</button>
+        </div>
       </header>
       <section className="admin-panel admin-controls" aria-label="Dashboard controls">
         <div className="admin-control-row">
@@ -144,7 +150,7 @@ export default function AdminControls({ today, timezone, initialActivity, initia
         <div className="admin-control-grid">
           <label>From<input type="date" value={from} max={today} onChange={(event) => { setFrom(event.target.value); setPreset('custom'); }} /></label>
           <label>To<input type="date" value={to} max={today} onChange={(event) => { setTo(event.target.value); setPreset('custom'); }} /></label>
-          <label>Lookup type<select value={type} onChange={(event) => setType(event.target.value)}><option value="">All types</option><option value="page">page</option><option value="geo">geo</option><option value="ip">ip</option><option value="whois">whois</option><option value="dns">dns</option><option value="legacy">legacy</option></select></label>
+          <label>Lookup type<select value={type} onChange={(event) => setType(event.target.value)}><option value="">All types</option><option value="page">page</option><option value="geo">geo</option><option value="ip">ip</option><option value="whois">whois</option><option value="dns">dns</option></select></label>
           <label>Channel<select value={channel} onChange={(event) => setChannel(event.target.value)}><option value="">All channels</option><option value="ui">ui</option><option value="api">api</option><option value="unknown">unknown</option></select></label>
           <label>Actor<select value={actor} onChange={(event) => setActor(event.target.value)}><option value="">All actors</option><option value="browser">browser</option><option value="bot">bot</option><option value="unknown">unknown</option></select></label>
           <label>Country<input value={country} maxLength={2} placeholder="US" onChange={(event) => setCountry(event.target.value.toUpperCase())} /></label>
@@ -155,7 +161,7 @@ export default function AdminControls({ today, timezone, initialActivity, initia
         {activityError ? <p className="error" role="alert">{activityError}</p> : null}
         {error ? <p className="error" role="alert">{error}</p> : null}
       </section>
-      <ActivityTable result={activity} timezone={timezone} page={page} hasNext={activity.events.length === 50 || activity.legacy.length === 50} onPrevious={() => load(preset, from, to, page - 1)} onNext={() => load(preset, from, to, page + 1)} />
+      <ActivityTable result={activity} timezone={timezone} page={page} hasNext={activity.events.length === 50} onPrevious={() => load(preset, from, to, page - 1)} onNext={() => load(preset, from, to, page + 1)} />
       <ResourceCards resources={resources} timezone={timezone} error={resourceError} />
       <ResourceCharts history={resources.history} />
     </main>

@@ -102,40 +102,34 @@ export function isDbReady(): boolean {
   }
 }
 
-export function insertLookup(ip: string, iso: string | null): { id: number; ts: number } {
-  const ts = Date.now();
-  const result = getDb().prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run(ip, iso, ts);
-  return { id: Number(result.lastInsertRowid), ts };
-}
-
 export function countSince(tsMs: number): number {
-  const row = getDb().prepare('SELECT COUNT(*) AS n FROM lookups WHERE ts >= ?').get(tsMs) as { n: number };
+  const row = getDb().prepare('SELECT COUNT(*) AS n FROM activity_events WHERE ts >= ?').get(tsMs) as { n: number };
   return row.n;
 }
 
 export function topCountryCodes(limit = 10): CountryCount[] {
   return getDb()
     .prepare(
-      'SELECT iso, COUNT(*) AS count FROM lookups WHERE iso IS NOT NULL GROUP BY iso ORDER BY count DESC, iso ASC LIMIT ?'
+      'SELECT iso, COUNT(*) AS count FROM activity_events WHERE iso IS NOT NULL GROUP BY iso ORDER BY count DESC, iso ASC LIMIT ?'
     )
     .all(limit) as CountryCount[];
 }
 
 export function countLookups(): number {
-  const row = getDb().prepare('SELECT COUNT(*) AS n FROM lookups').get() as { n: number };
+  const row = getDb().prepare('SELECT COUNT(*) AS n FROM activity_events').get() as { n: number };
   return row.n;
 }
 
 export function topIps(limit = 10): { ip: string; count: number }[] {
   return getDb()
-    .prepare('SELECT ip, COUNT(*) AS count FROM lookups GROUP BY ip ORDER BY count DESC, ip ASC LIMIT ?')
+    .prepare('SELECT ip, COUNT(*) AS count FROM activity_events GROUP BY ip ORDER BY count DESC, ip ASC LIMIT ?')
     .all(limit) as { ip: string; count: number }[];
 }
 
 export function dailyCounts(sinceTs: number, days = 7): { day: string; count: number }[] {
   return getDb()
     .prepare(
-      "SELECT strftime('%Y-%m-%d', ts / 1000, 'unixepoch') AS day, COUNT(*) AS count FROM lookups WHERE ts >= ? GROUP BY day ORDER BY day ASC LIMIT ?"
+      "SELECT strftime('%Y-%m-%d', ts / 1000, 'unixepoch') AS day, COUNT(*) AS count FROM activity_events WHERE ts >= ? GROUP BY day ORDER BY day ASC LIMIT ?"
     )
     .all(sinceTs, days) as { day: string; count: number }[];
 }
@@ -168,6 +162,51 @@ export function insertResourceSample(sample: ResourceSampleRecord): void {
 
 export function activityRetentionCutoff(nowMs = Date.now()): number {
   return nowMs - getRetentionDays() * DAY_MS;
+}
+
+export interface StorageItem {
+  name: string;
+  kind: 'table' | 'index';
+  bytes: number;
+  pages: number;
+  cells: number;
+}
+
+export interface StorageBreakdown {
+  fileBytes: number;
+  pageSize: number;
+  pageCount: number;
+  freelistCount: number;
+  freelistBytes: number;
+  items: StorageItem[];
+}
+
+export function readDatabaseBreakdown(): StorageBreakdown | null {
+  try {
+    const instance = getDb();
+    const { page_size: pageSize } = instance.prepare('PRAGMA page_size').get() as { page_size: number };
+    const { page_count: pageCount } = instance.prepare('PRAGMA page_count').get() as { page_count: number };
+    const { freelist_count: freelistCount } = instance.prepare('PRAGMA freelist_count').get() as { freelist_count: number };
+    const rows = instance
+      .prepare('SELECT name, SUM(pgsize) AS bytes, SUM(ncell) AS cells, COUNT(*) AS pages FROM dbstat GROUP BY name ORDER BY bytes DESC')
+      .all() as { name: string; bytes: number; cells: number; pages: number }[];
+    return {
+      fileBytes: pageSize * pageCount,
+      pageSize,
+      pageCount,
+      freelistCount,
+      freelistBytes: freelistCount * pageSize,
+      items: rows.map((row) => ({
+        name: row.name,
+        kind: row.name.startsWith('idx_') ? 'index' : 'table',
+        bytes: row.bytes,
+        pages: row.pages,
+        cells: row.cells,
+      })),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function pruneActivity(nowMs = Date.now()): number {

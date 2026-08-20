@@ -41,8 +41,6 @@ const emptyActivity = {
   actors: [],
   partials: [],
   events: [],
-  legacy: [],
-  legacySummary: { count: 0, uniqueIps: 0 },
   trend: [],
 };
 
@@ -50,6 +48,7 @@ const emptyResources = {
   current: null,
   sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null },
   history: [],
+  storage: null,
 };
 
 afterEach(() => {
@@ -178,7 +177,7 @@ describe('admin controls and data states', () => {
     expect(resourceHtml).toContain('Europe/Copenhagen');
   });
 
-  it('labels legacy rows and heuristic bot classification clearly', () => {
+  it('labels activity rows and heuristic bot classification clearly', () => {
     const html = renderToStaticMarkup(
       createElement(ActivityTable, {
         result: {
@@ -196,29 +195,16 @@ describe('admin controls and data states', () => {
             outcome: 'success',
             partial: false,
           }],
-          legacy: [{
-            id: null,
-            source: 'legacy',
-            ip: '203.0.113.11',
-            iso: null,
-            ts: Date.parse('2026-08-20T09:00:00Z'),
-            lookupType: 'legacy',
-            channel: 'unknown',
-            actor: 'unknown',
-            target: null,
-            outcome: 'unknown',
-            partial: false,
-          }],
         },
       }),
     );
 
     expect(html).toContain('203.0.113.10');
-    expect(html).toContain('legacy/unclassified');
+    expect(html).not.toContain('legacy/unclassified');
     expect(html).toContain('Bot labels are heuristic');
   });
 
-  it('sorts activity rows chronologically across activity and legacy sources', () => {
+  it('sorts activity rows chronologically within the events source', () => {
     const html = renderToStaticMarkup(
       createElement(ActivityTable, {
         result: {
@@ -235,16 +221,15 @@ describe('admin controls and data states', () => {
             target: 'new.example.com',
             outcome: 'success',
             partial: false,
-          }],
-          legacy: [{
-            id: null,
-            source: 'legacy',
+          }, {
+            id: 2,
+            source: 'activity',
             ip: '203.0.113.11',
             iso: null,
             ts: Date.parse('2026-08-20T10:00:00Z'),
-            lookupType: 'legacy',
-            channel: 'unknown',
-            actor: 'unknown',
+            lookupType: 'ip',
+            channel: 'api',
+            actor: 'bot',
             target: null,
             outcome: 'success',
             partial: false,
@@ -256,7 +241,7 @@ describe('admin controls and data states', () => {
     expect(html.indexOf('203.0.113.11')).toBeLessThan(html.indexOf('203.0.113.10'));
   });
 
-  it('includes controls required for date, filters, pagination, and logout', () => {
+  it('includes controls required for date, filters, refresh, theme, pagination, and logout', () => {
     const html = renderToStaticMarkup(
       createElement(AdminControls, {
         today: '2026-08-20',
@@ -272,7 +257,10 @@ describe('admin controls and data states', () => {
     expect(html).toContain('Custom range');
     expect(html).toContain('Lookup type');
     expect(html).toContain('Previous page');
+    expect(html).toContain('Refresh');
+    expect(html).toContain('Toggle light and dark mode');
     expect(html).toContain('Log out');
+    expect(html).not.toContain('legacy');
   });
 
   it('shows sampler status and the last sampler error', () => {

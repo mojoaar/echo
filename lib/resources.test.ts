@@ -9,6 +9,7 @@ import {
   pruneResourceSamples,
   readResourceSample,
   startResourceSampler,
+  stopResourceSampler,
 } from './resources';
 
 const DAY_MS = 86_400_000;
@@ -128,7 +129,7 @@ describe('resource measurements', () => {
     expect(sample.walBytes).toBe(3);
     expect(sample.shmBytes).toBe(3);
     expect(sample.otherDataBytes).toBe(5);
-    expect(sample.lookupRows).toBe(1);
+    expect(sample.lookupRows).toBeNull();
     expect(sample.activityRows).toBe(1);
     expect(sample.dataUsedBytes).toBeGreaterThanOrEqual(19);
   });
@@ -254,9 +255,22 @@ describe('resource sampler lifecycle', () => {
     expect(getDb().prepare('SELECT COUNT(*) AS count FROM resource_samples').get()).toEqual({ count: 3 });
 
     samplerCleanup?.();
-    expect(getResourceSamplerStatus()).toMatchObject({ enabled: true, running: false });
+    expect(getResourceSamplerStatus()).toMatchObject({ enabled: true, running: true });
     vi.advanceTimersByTime(FIVE_MINUTES_MS);
-    expect(getDb().prepare('SELECT COUNT(*) AS count FROM resource_samples').get()).toEqual({ count: 3 });
+    expect(getDb().prepare('SELECT COUNT(*) AS count FROM resource_samples').get()).toEqual({ count: 4 });
+  });
+
+  it('self-heals a configured but stopped sampler on status check', () => {
+    process.env.ADMIN_TOKEN = 'configured';
+    vi.useFakeTimers();
+
+    expect(getResourceSamplerStatus()).toMatchObject({ enabled: true, running: true });
+    expect(getDb().prepare('SELECT COUNT(*) AS count FROM resource_samples').get()).toEqual({ count: 1 });
+
+    vi.advanceTimersByTime(FIVE_MINUTES_MS);
+    expect(getDb().prepare('SELECT COUNT(*) AS count FROM resource_samples').get()).toEqual({ count: 2 });
+
+    stopResourceSampler();
   });
 
   it('retains only the last 30 days of resource samples in SQLite', () => {

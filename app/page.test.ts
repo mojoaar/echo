@@ -15,7 +15,6 @@ vi.mock('@/lib/geo', async (importOriginal) => ({
 vi.mock('@/lib/db', () => ({
   countLookups: vi.fn(() => 0),
   countSince: vi.fn(() => 0),
-  insertLookup: vi.fn(),
   topCountryCodes: vi.fn(() => []),
 }));
 

@@ -45,7 +45,6 @@ function activityPayload(events = [
     types: [{ value: 'dns', count: events.length }],
     outcomes: [{ value: 'success', count: events.length }],
     events,
-    legacy: [],
   };
 }
 
@@ -53,6 +52,7 @@ async function stubAdminData(page: import('@playwright/test').Page, resources: u
   current: null,
   sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null },
   history: [],
+  storage: null,
 }) {
   await page.route('**/api/admin/activity**', async (route) => {
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(activityPayload()) });
@@ -90,6 +90,34 @@ test('logs out and returns to the protected login screen', async ({ page }) => {
   await page.getByRole('button', { name: 'Log out' }).click();
   await expect(page.getByRole('heading', { name: 'Admin access' })).toBeVisible();
   await expect(page.getByLabel('Admin token')).toBeVisible();
+});
+
+test('refreshes the dashboard in place without a browser reload', async ({ page }) => {
+  let activityRequests = 0;
+  let resourceRequests = 0;
+  await page.route('**/api/admin/activity**', async (route) => {
+    activityRequests += 1;
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(activityPayload()) });
+  });
+  await page.route('**/api/admin/resources**', async (route) => {
+    resourceRequests += 1;
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [], storage: null }) });
+  });
+  await signIn(page);
+  await expect.poll(async () => {
+    if (activityRequests === 0 && resourceRequests === 0) {
+      await page.getByRole('button', { name: 'Refresh' }).click();
+    }
+    return activityRequests + resourceRequests;
+  }).toBeGreaterThanOrEqual(1);
+  await expect(page.getByRole('button', { name: 'Refresh' })).toBeEnabled();
+  const beforeActivity = activityRequests;
+  const beforeResources = resourceRequests;
+
+  await page.getByRole('button', { name: 'Refresh' }).click();
+  await expect.poll(() => activityRequests).toBeGreaterThan(beforeActivity);
+  await expect.poll(() => resourceRequests).toBeGreaterThan(beforeResources);
+  await expect(page.getByRole('heading', { name: 'Admin dashboard' })).toBeVisible();
 });
 
 test('applies daily, weekly, monthly, and custom date ranges', async ({ page }) => {
@@ -165,6 +193,18 @@ test('filters activity and renders the table, resource cards, and charts', async
       { ts: 1, memoryUsedBytes: 1024, dataUsedBytes: 2048 },
       { ts: 2, memoryUsedBytes: 2048, dataUsedBytes: 4096 },
     ],
+    storage: {
+      fileBytes: 4096,
+      pageSize: 4096,
+      pageCount: 1,
+      freelistCount: 0,
+      freelistBytes: 0,
+      items: [
+        { name: 'activity_events', kind: 'table', bytes: 2048, pages: 1, cells: 8 },
+        { name: 'lookups', kind: 'table', bytes: 1024, pages: 1, cells: 12 },
+        { name: 'idx_activity_events_ts', kind: 'index', bytes: 512, pages: 1, cells: 8 },
+      ],
+    },
   };
   await page.route('**/api/admin/activity**', async (route) => {
     activityUrls.push(route.request().url());
@@ -193,6 +233,8 @@ test('filters activity and renders the table, resource cards, and charts', async
   await expect(page.getByText('5.0 MB')).toBeVisible();
   await expect(page.getByRole('img', { name: 'Memory history' })).toBeVisible();
   await expect(page.getByRole('img', { name: '/data history' })).toBeVisible();
+  await expect(page.getByText('now 2.0 KB · peak 2.0 KB · min 1.0 KB', { exact: true })).toBeVisible();
+  await expect(page.getByText('now 4.0 KB · peak 4.0 KB · min 2.0 KB', { exact: true })).toBeVisible();
   await expect.poll(() => activityUrls.some((value) => new URL(value).searchParams.get('type') === 'dns')).toBeTruthy();
   const url = new URL(activityUrls.find((value) => new URL(value).searchParams.get('type') === 'dns') as string);
   expect(url.searchParams.get('type')).toBe('dns');
@@ -300,7 +342,7 @@ test('shows loading and honest activity API errors', async ({ page }) => {
     });
   });
   await page.getByRole('button', { name: 'Apply filters' }).click();
-  await expect(page.getByRole('button', { name: 'Loading...' })).toBeVisible();
+  await expect(page.getByLabel('Dashboard controls').getByRole('button', { name: 'Loading...' })).toBeVisible();
   release?.();
   await expect(adminAlert(page)).toContainText('database unavailable');
 });
@@ -332,7 +374,6 @@ test('clears stale activity rows when a later activity request fails', async ({ 
             outcome: 'success',
             partial: false,
           }],
-          legacy: [],
         }),
       });
       return;
@@ -418,7 +459,7 @@ test('applies filters and pagination through same-origin admin requests', async 
     }));
     await route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify({ totalSuccessfulEvents: 50, uniqueIps: 50, countries: [], types: [], outcomes: [], events, legacy: [] }),
+      body: JSON.stringify({ totalSuccessfulEvents: 50, uniqueIps: 50, countries: [], types: [], outcomes: [], events }),
     });
     expect(url.pathname).toBe('/api/admin/activity');
   });
@@ -453,7 +494,7 @@ test('keeps the requested page when the resource request fails', async ({ page }
       outcome: 'success',
       partial: false,
     }));
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ totalSuccessfulEvents: 50, uniqueIps: 50, countries: [], types: [], outcomes: [], events, legacy: [] }) });
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ totalSuccessfulEvents: 50, uniqueIps: 50, countries: [], types: [], outcomes: [], events }) });
   });
   let resourceAttempts = 0;
   await page.route('**/api/admin/resources**', async (route) => {

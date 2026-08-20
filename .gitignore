@@ -9,4 +9,5 @@ data/*.mmdb.tmp
 .env
 .opencode/
 test-results/
-playwright-report/
+playwright-report/.opencode/
+.superpowers/

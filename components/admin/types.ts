@@ -1,5 +1,6 @@
 import type { ActivityQueryResult, ActivityRow } from '@/lib/activity';
 import type { ResourceSamplerStatus } from '@/lib/resources';
+import type { StorageBreakdown } from '@/lib/db';
 
 export type AdminActivityResult = ActivityQueryResult;
 
@@ -24,6 +25,7 @@ export type AdminResources = {
   current: AdminResourceRow | null;
   sampler: ResourceSamplerStatus;
   history: AdminResourceRow[];
+  storage: StorageBreakdown | null;
 };
 
 export type AdminActivityRow = ActivityRow;

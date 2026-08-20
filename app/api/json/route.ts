@@ -1,7 +1,6 @@
 import { extractVisitorIp, normalizeIp } from '@/lib/ip';
 import { isValidIp } from '@/lib/validate';
 import { lookupInfo } from '@/lib/geo';
-import { insertLookup } from '@/lib/db';
 import { getRateLimiter } from '@/lib/ratelimit';
 import { apiError, withRateHeaders } from '@/lib/api';
 import { classifyActivityActor, isActivityPathExcluded, recordActivityEvent, resolveActivityChannel } from '@/lib/activity';
@@ -43,17 +42,6 @@ export async function GET(request: Request) {
     );
   }
   const info = await lookupInfo(ip);
-  const startedAt = Date.now();
-  try {
-    insertLookup(info.ip, info.country);
-  } catch {
-    console.error(JSON.stringify({
-      category: 'database_write',
-      endpoint: '/api/json',
-      status: 'error',
-      durationMs: Math.max(0, Date.now() - startedAt),
-    }));
-  }
   if (!isActivityPathExcluded(request)) try {
     recordActivityEvent({
       ip: extractVisitorIp(request.headers) ?? 'unknown',

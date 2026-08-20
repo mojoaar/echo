@@ -28,8 +28,8 @@ function trendPoints(result: ActivityQueryResult): string {
 }
 
 export default function ActivityTable({ result, timezone = 'UTC', page = 1, hasNext = false, onPrevious, onNext }: ActivityTableProps) {
-  const rows = [...result.events, ...result.legacy].sort((left, right) =>
-    right.ts - left.ts || (right.id ?? -1) - (left.id ?? -1) || left.source.localeCompare(right.source),
+  const rows = [...result.events].sort((left, right) =>
+    right.ts - left.ts || (right.id ?? -1) - (left.id ?? -1),
   );
   return (
     <section className="admin-panel" aria-labelledby="activity-heading">
@@ -51,7 +51,6 @@ export default function ActivityTable({ result, timezone = 'UTC', page = 1, hasN
         {(result.actors ?? []).map((item) => <span key={`actor-${item.value}`}>actor {breakdown(item.value, item.count)}</span>)}
         {(result.outcomes ?? []).map((item) => <span key={`outcome-${item.value}`}>outcome {breakdown(item.value, item.count)}</span>)}
         {(result.partials ?? []).map((item) => <span key={`partial-${item.value}`}>status {breakdown(item.value, item.count)}</span>)}
-        {result.legacySummary?.count ? <span>legacy/unclassified: {result.legacySummary.count}</span> : null}
       </div>
       <div className="admin-activity-trend">
         <div className="admin-chart-label">Activity trend</div>
@@ -69,9 +68,9 @@ export default function ActivityTable({ result, timezone = 'UTC', page = 1, hasN
                   <td>{row.ip}</td>
                   <td>{row.iso ?? '—'}</td>
                   <td>{timestamp(row.ts, timezone)}</td>
-                  <td>{row.source === 'legacy' ? 'legacy/unclassified' : row.lookupType}</td>
-                  <td>{row.source === 'legacy' ? 'unknown' : row.channel}</td>
-                  <td>{row.source === 'legacy' ? 'unknown' : row.actor}</td>
+                  <td>{row.lookupType}</td>
+                  <td>{row.channel}</td>
+                  <td>{row.actor}</td>
                   <td>{row.target ?? '—'}</td>
                   <td>{row.partial ? 'partial' : row.outcome}</td>
                 </tr>

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The `echo` brand in the header links back to the home page
+- Admin activity no longer shows legacy/unclassified rows and avoids duplicate lookup writes
+- Public stats are now derived from attributed activity events instead of the separate lookup log
+- Admin resource charts show current, peak, and minimum values for memory and `/data`
+- Admin memory card shows usage as a percentage of the container limit or a `no container memory limit` note when unset
+- Admin dashboard gains a refresh button, light/dark theme toggle, and site footer
+- The resource sampler self-heals when authenticated but stopped, without requiring a container restart
+- Admin dashboard includes a SQLite storage breakdown from `dbstat` and page-count pragmas
+
+### Fixed
+
+- Navigating back from `/docs` is now possible via the header brand link
+- Mobile Safari keyboard activation of the light/dark toggle no longer flakes in the test suite
+
 ## [1.6.0] - 2026-08-20
 
 ### Added

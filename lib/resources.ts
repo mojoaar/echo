@@ -201,7 +201,7 @@ export function readResourceSample(nowMs = Date.now()): ResourceSampleInput {
     cpuPercent: cpuMeasurement(nowMs),
     ...memory,
     ...data,
-    lookupRows: readRowCount('lookups'),
+    lookupRows: null,
     activityRows: readRowCount('activity_events'),
     uptimeSeconds: Math.floor(process.uptime()),
     localTs: localTimestamp(nowMs),
@@ -221,7 +221,7 @@ function saveResourceSample(): void {
   lastError = null;
 }
 
-function stopResourceSampler(): void {
+export function stopResourceSampler(): void {
   if (samplerTimer) clearInterval(samplerTimer);
   samplerTimer = null;
   lastCpuSample = null;
@@ -253,7 +253,11 @@ export function startResourceSampler(): (() => void) | null {
 }
 
 export function getResourceSamplerStatus(): ResourceSamplerStatus {
-  if (!adminConfigured() && samplerTimer) stopResourceSampler();
+  if (adminConfigured() && samplerTimer === null) {
+    startResourceSampler();
+  } else if (!adminConfigured() && samplerTimer) {
+    stopResourceSampler();
+  }
   return {
     enabled: adminConfigured(),
     running: samplerTimer !== null,

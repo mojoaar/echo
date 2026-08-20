@@ -5,7 +5,6 @@ export type ActivityLookupType = 'page' | 'geo' | 'ip' | 'whois' | 'dns';
 export type ActivityChannel = 'ui' | 'api' | 'unknown';
 export type ActivityActor = 'browser' | 'bot' | 'unknown';
 export type ActivityOutcome = 'success' | 'partial';
-export type ActivityLegacyOutcome = 'unknown';
 export type ActivitySort = 'asc' | 'desc';
 
 export interface ActivityEvent {
@@ -23,7 +22,7 @@ export interface ActivityEvent {
 export interface ActivityQuery {
   from?: number;
   to?: number;
-  type?: ActivityLookupType | 'legacy' | Array<ActivityLookupType | 'legacy'>;
+  type?: ActivityLookupType | ActivityLookupType[];
   channel?: ActivityChannel | ActivityChannel[];
   actor?: ActivityActor | ActivityActor[];
   country?: string;
@@ -36,15 +35,15 @@ export interface ActivityQuery {
 
 export interface ActivityRow {
   id: number | null;
-  source: 'activity' | 'legacy';
+  source: 'activity';
   ip: string;
   iso: string | null;
   ts: number;
-  lookupType: ActivityLookupType | 'legacy';
+  lookupType: ActivityLookupType;
   channel: ActivityChannel;
   actor: ActivityActor;
   target: string | null;
-  outcome: ActivityOutcome | ActivityLegacyOutcome;
+  outcome: ActivityOutcome;
   partial: boolean;
 }
 
@@ -68,8 +67,6 @@ export interface ActivityQueryResult {
   actors: ActivityBreakdown[];
   partials: ActivityBreakdown[];
   events: ActivityRow[];
-  legacy: ActivityRow[];
-  legacySummary: { count: number; uniqueIps: number };
   trend: ActivityBreakdown[];
 }
 
@@ -125,7 +122,7 @@ function placeholders(values: string[]): string {
   return values.map(() => '?').join(', ');
 }
 
-function filterSql(options: ActivityQuery, source: 'activity' | 'legacy'): { sql: string; params: Array<string | number> } {
+function filterSql(options: ActivityQuery): { sql: string; params: Array<string | number> } {
   const clauses = ['ts >= ?', 'ts <= ?'];
   const params: Array<string | number> = [options.from ?? 0, options.to ?? Date.now()];
   const types = asList(options.type);
@@ -133,34 +130,23 @@ function filterSql(options: ActivityQuery, source: 'activity' | 'legacy'): { sql
   const actor = asList(options.actor);
 
   if (types) {
-    const accepted = types.filter((value) => value !== 'legacy' && lookupTypes.has(value as ActivityLookupType));
-    if (source === 'legacy' && !types.includes('legacy')) clauses.push('1 = 0');
-    if (source === 'activity' && !accepted.length) clauses.push('1 = 0');
-    if (source === 'activity' && accepted.length) clauses.push(`lookup_type IN (${placeholders(accepted)})`), params.push(...accepted);
+    const accepted = types.filter((value): value is ActivityLookupType => lookupTypes.has(value));
+    if (!accepted.length) clauses.push('1 = 0');
+    else clauses.push(`lookup_type IN (${placeholders(accepted)})`), params.push(...accepted);
   }
   if (channel) {
-    const accepted = channel.filter((value) => channels.has(value));
-    if (source === 'legacy') {
-      if (!accepted.includes('unknown')) clauses.push('1 = 0');
-    } else {
-      if (!accepted.length) clauses.push('1 = 0');
-      else clauses.push(`channel IN (${placeholders(accepted)})`), params.push(...accepted);
-    }
+    const accepted = channel.filter((value): value is ActivityChannel => channels.has(value));
+    if (!accepted.length) clauses.push('1 = 0');
+    else clauses.push(`channel IN (${placeholders(accepted)})`), params.push(...accepted);
   }
   if (actor) {
-    const accepted = actor.filter((value) => actors.has(value));
-    if (source === 'legacy') {
-      if (!accepted.includes('unknown')) clauses.push('1 = 0');
-    } else {
-      if (!accepted.length) clauses.push('1 = 0');
-      else clauses.push(`actor IN (${placeholders(accepted)})`), params.push(...accepted);
-    }
+    const accepted = actor.filter((value): value is ActivityActor => actors.has(value));
+    if (!accepted.length) clauses.push('1 = 0');
+    else clauses.push(`actor IN (${placeholders(accepted)})`), params.push(...accepted);
   }
   if (options.country !== undefined) clauses.push('iso = ?'), params.push(options.country);
   if (options.outcome !== undefined) {
-    if (source === 'legacy') {
-      clauses.push('1 = 0');
-    } else if (!outcomes.has(options.outcome)) clauses.push('1 = 0');
+    if (!outcomes.has(options.outcome)) clauses.push('1 = 0');
     else clauses.push('outcome = ?'), params.push(options.outcome);
   }
   if (options.ip !== undefined) clauses.push('ip = ?'), params.push(options.ip);
@@ -204,8 +190,7 @@ function trendPoints(db: ReturnType<typeof getDb>, activityUnion: string, params
 
 export function queryActivity(options: ActivityQuery = {}): ActivityQueryResult {
   const db = getDb();
-  const activityFilter = filterSql(options, 'activity');
-  const legacyFilter = filterSql(options, 'legacy');
+  const activityFilter = filterSql(options);
   const activityUnion = `SELECT id, ip, iso, ts, lookup_type AS lookupType, channel, actor, target, outcome, partial FROM activity_events WHERE ${activityFilter.sql}`;
   const count = db.prepare(`SELECT COUNT(*) AS count FROM (${activityUnion}) WHERE outcome = 'success'`).get(...activityFilter.params) as { count: number };
   const unique = db.prepare(`SELECT COUNT(DISTINCT ip) AS count FROM (${activityUnion})`).get(...activityFilter.params) as { count: number };
@@ -216,16 +201,11 @@ export function queryActivity(options: ActivityQuery = {}): ActivityQueryResult 
   const outcomeRows = db.prepare(`SELECT outcome AS value, COUNT(*) AS count FROM (${activityUnion}) GROUP BY outcome ORDER BY value ASC`).all(...activityFilter.params) as ActivityBreakdown[];
   const partialRows = db.prepare(`SELECT CASE WHEN partial = 1 THEN 'partial' ELSE 'complete' END AS value, COUNT(*) AS count FROM (${activityUnion}) GROUP BY partial ORDER BY value ASC`).all(...activityFilter.params) as ActivityBreakdown[];
   const trend = trendPoints(db, activityUnion, activityFilter.params, options.from ?? 0, options.to ?? Date.now());
-  const legacySummary = db.prepare(`SELECT COUNT(*) AS count, COUNT(DISTINCT ip) AS uniqueIps FROM lookups WHERE ${legacyFilter.sql}`).get(...legacyFilter.params) as { count: number; uniqueIps: number };
   const order = options.sort === 'asc' ? 'ASC' : 'DESC';
   const events = db
     .prepare(`SELECT id, 'activity' AS source, ip, iso, ts, lookup_type AS lookupType, channel, actor, target, outcome, partial FROM activity_events WHERE ${activityFilter.sql} ORDER BY ts ${order}, id ${order} LIMIT ? OFFSET ?`)
     .all(...activityFilter.params, normalizedLimit(options.limit), normalizedOffset(options.offset)) as Array<Omit<ActivityRow, 'partial'> & { partial: number }>;
-  const legacyRows = db
-    .prepare(`SELECT NULL AS id, 'legacy' AS source, ip, iso, ts, 'legacy' AS lookupType, 'unknown' AS channel, 'unknown' AS actor, NULL AS target, 'unknown' AS outcome, 0 AS partial FROM lookups WHERE ${legacyFilter.sql} ORDER BY ts ${order}, ip ASC LIMIT ? OFFSET ?`)
-    .all(...legacyFilter.params, normalizedLimit(options.limit), normalizedOffset(options.offset)) as Array<Omit<ActivityRow, 'partial'> & { partial: number }>;
   const normalizedEvents = events.map((row) => ({ ...row, partial: row.partial === 1 })) as ActivityRow[];
-  const normalizedLegacy = legacyRows.map((row) => ({ ...row, partial: false })) as ActivityRow[];
   return {
     totalSuccessfulEvents: count.count,
     uniqueIps: unique.count,
@@ -236,8 +216,6 @@ export function queryActivity(options: ActivityQuery = {}): ActivityQueryResult 
     outcomes: outcomeRows,
     partials: partialRows,
     events: normalizedEvents,
-    legacy: normalizedLegacy,
-    legacySummary,
     trend,
   };
 }

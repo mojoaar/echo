@@ -5,10 +5,11 @@ import { notFound } from 'next/navigation';
 import { ADMIN_SESSION_COOKIE, isAdminEnabled, verifyAdminSession } from '@/lib/admin-auth';
 import { adminDateRange, containerDate, containerTimezone } from '@/lib/admin-date';
 import { queryActivity, type ActivityQueryResult } from '@/lib/activity';
-import { getDb, getRetentionDays } from '@/lib/db';
+import { getDb, getRetentionDays, readDatabaseBreakdown } from '@/lib/db';
 import { getResourceSamplerStatus } from '@/lib/resources';
 import AdminLogin from '@/components/admin/AdminLogin';
 import AdminControls from '@/components/admin/AdminControls';
+import SiteFooter from '@/components/ui/SiteFooter';
 import type { AdminResources, AdminResourceRow } from '@/components/admin/types';
 
 export const dynamic = 'force-dynamic';
@@ -39,7 +40,7 @@ function resourceRow(row: Record<string, unknown>): AdminResourceRow {
 
 function initialResources(): AdminResources {
   const range = adminDateRange(new URL('https://echo.test/admin'), 30);
-  if (!range) return { current: null, sampler: getResourceSamplerStatus(), history: [] };
+  if (!range) return { current: null, sampler: getResourceSamplerStatus(), history: [], storage: null };
   const db = getDb();
   const current = db.prepare(
     'SELECT ts, cpu_percent, memory_used_bytes, memory_limit_bytes, data_used_bytes, database_bytes, wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts, image_size_bytes FROM resource_samples ORDER BY ts DESC LIMIT 1',
@@ -51,6 +52,7 @@ function initialResources(): AdminResources {
     current: current ? resourceRow(current) : null,
     sampler: getResourceSamplerStatus(),
     history: history.map(resourceRow),
+    storage: readDatabaseBreakdown(),
   };
 }
 
@@ -62,7 +64,7 @@ export default async function Page() {
   if (!verifyAdminSession(session).valid) return <AdminLogin />;
 
   const today = containerDate();
-  const emptyActivity: ActivityQueryResult = { totalSuccessfulEvents: 0, uniqueIps: 0, countries: [], types: [], channels: [], actors: [], outcomes: [], partials: [], events: [], legacy: [], legacySummary: { count: 0, uniqueIps: 0 }, trend: [] };
+  const emptyActivity: ActivityQueryResult = { totalSuccessfulEvents: 0, uniqueIps: 0, countries: [], types: [], channels: [], actors: [], outcomes: [], partials: [], events: [], trend: [] };
   let activity = emptyActivity;
   let activityError: string | null = null;
   try {
@@ -78,13 +80,14 @@ export default async function Page() {
   try {
     resources = initialResources();
   } catch {
-    resources = { current: null, sampler: { enabled: true, running: false, lastSuccessTs: null, lastError: 'sample_failed' }, history: [] };
+    resources = { current: null, sampler: { enabled: true, running: false, lastSuccessTs: null, lastError: 'sample_failed' }, history: [], storage: null };
     resourceError = 'Unable to load resource data.';
   }
 
   return (
     <div className="admin-shell">
       <AdminControls today={today} timezone={containerTimezone()} initialActivity={activity} initialResources={resources} initialActivityError={activityError} initialResourceError={resourceError} />
+      <SiteFooter />
     </div>
   );
 }
