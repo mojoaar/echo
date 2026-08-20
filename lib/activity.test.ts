@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -125,6 +125,43 @@ describe('activity events', () => {
     expect(result.legacy[0]).toMatchObject({ lookupType: 'legacy', channel: 'unknown', actor: 'unknown', outcome: 'unknown' });
     expect(result.legacySummary).toEqual({ count: 1, uniqueIps: 1 });
     expect(result.trend).toEqual([{ value: '1970-01-10', count: 3 }]);
+  });
+
+  it('bounds legacy rows to the requested page window', () => {
+    const now = 10 * dayMs;
+    for (let index = 0; index < 3; index += 1) {
+      getDb().prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run(`198.51.100.${index + 1}`, 'US', now - index);
+    }
+
+    const firstPage = queryActivity({ from: now - 10, to: now, limit: 1, offset: 0 });
+    const secondPage = queryActivity({ from: now - 10, to: now, limit: 1, offset: 1 });
+
+    expect(firstPage.legacy).toHaveLength(1);
+    expect(secondPage.legacy).toHaveLength(1);
+    expect(firstPage.legacy[0].ip).toBe('198.51.100.1');
+    expect(secondPage.legacy[0].ip).toBe('198.51.100.2');
+    expect(firstPage.legacySummary).toEqual({ count: 3, uniqueIps: 3 });
+  });
+
+  it('aggregates trend points in SQL without materializing matching timestamps', () => {
+    const now = 10 * dayMs;
+    const db = getDb();
+    for (let index = 0; index < 100; index += 1) {
+      recordActivityEvent({ ip: `203.0.113.${index}`, iso: 'US', ts: now - 1_000, lookupType: 'ip', channel: 'api', actor: 'bot', target: null, outcome: 'success', partial: false });
+    }
+    recordActivityEvent({ ip: '203.0.113.200', iso: 'US', ts: now - 2 * dayMs + 1_000, lookupType: 'dns', channel: 'api', actor: 'bot', target: null, outcome: 'partial', partial: true });
+    const prepare = vi.spyOn(db, 'prepare');
+
+    const result = queryActivity({ from: now - 2 * dayMs, to: now, limit: 0 });
+    const statements = prepare.mock.calls.map(([sql]) => String(sql));
+
+    prepare.mockRestore();
+    expect(result.trend).toEqual([
+      { value: '1970-01-09', count: 1 },
+      { value: '1970-01-10', count: 100 },
+    ]);
+    expect(statements.some((sql) => sql.includes('SELECT ts FROM'))).toBe(false);
+    expect(statements.filter((sql) => sql.includes('WITH filtered AS'))).toHaveLength(1);
   });
 
   it('applies time, type, channel, actor, and country filters', () => {

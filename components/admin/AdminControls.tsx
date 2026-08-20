@@ -155,7 +155,7 @@ export default function AdminControls({ today, timezone, initialActivity, initia
         {activityError ? <p className="error" role="alert">{activityError}</p> : null}
         {error ? <p className="error" role="alert">{error}</p> : null}
       </section>
-      <ActivityTable result={activity} timezone={timezone} page={page} hasNext={activity.events.length === 50} onPrevious={() => load(preset, from, to, page - 1)} onNext={() => load(preset, from, to, page + 1)} />
+      <ActivityTable result={activity} timezone={timezone} page={page} hasNext={activity.events.length === 50 || activity.legacy.length === 50} onPrevious={() => load(preset, from, to, page - 1)} onNext={() => load(preset, from, to, page + 1)} />
       <ResourceCards resources={resources} timezone={timezone} error={resourceError} />
       <ResourceCharts history={resources.history} />
     </main>

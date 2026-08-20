@@ -109,3 +109,73 @@ Result: exited `0` with no whitespace errors.
 - Vitest continues to emit the existing non-fatal warning that `vitest.config.ts` uses ESM syntax while loaded as CommonJS.
 - Session revocation is process-local in-memory state; `ADMIN_TOKEN` rotation still invalidates all signed sessions across restarts, while a logout revocation list does not need persistence beyond the running process because the browser session is cleared and the signed session expires or token rotation invalidates it.
 - Browser/Playwright verification was not rerun because the requested completion gates were `npm test`, `npm run lint`, and `git diff --check`; the branch’s prior Task 8 report records the existing full-browser environment limitation.
+
+## Re-Review Findings Resolution
+
+### Important: bounded legacy activity pages
+
+Legacy `lookups` rows now use the requested activity page limit and offset instead of loading the complete legacy result set. Legacy rows remain isolated in the `legacy` collection with `legacy/unclassified` labeling, while `legacySummary` remains unpaginated for accurate totals. The dashboard enables the next-page control when either attributed or legacy rows fill a page.
+
+Regression coverage: `lib/activity.test.ts` verifies that consecutive pages return bounded, non-duplicated legacy rows and preserve the full legacy summary.
+
+### Important: bounded activity trends
+
+Activity trends now reduce matching events in parameterized SQL and return at most the retained 31-day trend window. The application no longer loads every matching timestamp before grouping, and the query is timezone-aware through the shared normalized admin timezone and local-day boundaries.
+
+Regression coverage: `lib/activity.test.ts` verifies daily trend counts and asserts the SQL path uses a grouped CTE rather than a timestamp-only result query.
+
+### Important: explicit activity sort validation
+
+The activity API now validates `sort` explicitly, accepting only `asc` or `desc` and returning the stable `{ error: 'invalid input', code: 'invalid_input' }` response for unsupported or repeated values. Validated sort order is applied to both attributed and legacy detail queries.
+
+Regression coverage: `app/api/admin/activity/route.test.ts` verifies unsupported sort values return HTTP 400 with the stable invalid-input response.
+
+### Minor: invalid admin timezone fallback
+
+The admin page now uses the same normalized timezone helper as admin date handling. Missing or invalid `TZ` values fall back to `UTC` before reaching `Intl.DateTimeFormat`, preventing page rendering exceptions and keeping displayed local timestamps consistent with date-range calculations.
+
+Regression coverage: `app/admin/page.test.ts` renders an authenticated page with an invalid timezone and verifies the UTC label and timestamp.
+
+## Re-Review TDD Evidence
+
+Focused RED command:
+
+```text
+npx vitest run lib/activity.test.ts app/api/admin/activity/route.test.ts app/admin/page.test.ts
+```
+
+Result: `4` new regressions failed for unbounded legacy rows, timestamp materialization, ignored sort validation, and invalid timezone rendering.
+
+Focused GREEN command:
+
+```text
+npx vitest run lib/activity.test.ts app/api/admin/activity/route.test.ts app/admin/page.test.ts
+```
+
+Result: `3` test files passed and `33` tests passed.
+
+## Re-Review Verification
+
+Full tests:
+
+```text
+npm test
+```
+
+Result: `35` test files passed and `283` tests passed.
+
+Typecheck/lint:
+
+```text
+npm run lint
+```
+
+Result: `tsc --noEmit` exited `0`.
+
+Whitespace validation:
+
+```text
+git diff --check
+```
+
+Result: exited `0` with no whitespace errors.

@@ -110,6 +110,23 @@ describe('admin page', () => {
     expect(html).not.toContain('do-not-render-this');
   });
 
+  it('falls back to UTC for an invalid configured timezone', async () => {
+    process.env.ADMIN_TOKEN = 'do-not-render-this';
+    process.env.TZ = 'Invalid/Timezone';
+    pageCookies('valid-session');
+    verifyAdminSession.mockReturnValue({ valid: true, expiresAt: Date.now() + 1_000 });
+    queryActivity.mockReturnValue({
+      ...emptyActivity,
+      events: [{ id: 1, source: 'activity', ip: '203.0.113.10', iso: 'US', ts: Date.parse('2026-08-20T10:00:00Z'), lookupType: 'ip', channel: 'api', actor: 'browser', target: null, outcome: 'success', partial: false }],
+    });
+
+    const page = await Page();
+    const html = renderToStaticMarkup(page);
+
+    expect(html).toContain('Container timezone: UTC');
+    expect(html).toContain('2026-08-20 10:00:00');
+  });
+
   it('renders an admin error state when initial activity loading fails', async () => {
     process.env.ADMIN_TOKEN = 'do-not-render-this';
     pageCookies('valid-session');

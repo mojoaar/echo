@@ -1,10 +1,12 @@
-import { getDb, activityRetentionCutoff as dbActivityRetentionCutoff, pruneActivity as dbPruneActivity } from './db';
+import { getDb, activityRetentionCutoff as dbActivityRetentionCutoff, getRetentionDays, pruneActivity as dbPruneActivity } from './db';
+import { containerTimezone, localDayRange } from './admin-date';
 
 export type ActivityLookupType = 'page' | 'geo' | 'ip' | 'whois' | 'dns';
 export type ActivityChannel = 'ui' | 'api' | 'unknown';
 export type ActivityActor = 'browser' | 'bot' | 'unknown';
 export type ActivityOutcome = 'success' | 'partial';
 export type ActivityLegacyOutcome = 'unknown';
+export type ActivitySort = 'asc' | 'desc';
 
 export interface ActivityEvent {
   ip: string;
@@ -29,6 +31,7 @@ export interface ActivityQuery {
   ip?: string;
   limit?: number;
   offset?: number;
+  sort?: ActivitySort;
 }
 
 export interface ActivityRow {
@@ -173,7 +176,30 @@ function normalizedOffset(value: number | undefined): number {
 }
 
 function localDay(ts: number): string {
-  return new Intl.DateTimeFormat('sv-SE', { timeZone: process.env.TZ || 'UTC' }).format(new Date(ts));
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: containerTimezone() }).format(new Date(ts));
+}
+
+function shiftDay(value: string, days: number): string {
+  const [year, month, day] = value.split('-').map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, day + days));
+  return `${String(shifted.getUTCFullYear()).padStart(4, '0')}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`;
+}
+
+function trendPoints(db: ReturnType<typeof getDb>, activityUnion: string, params: Array<string | number>, from: number, to: number): ActivityBreakdown[] {
+  const firstDay = localDay(from);
+  const lastDay = localDay(to);
+  const maxDays = Math.min(getRetentionDays(), 31);
+  const totalDays = Math.floor((Date.parse(`${lastDay}T00:00:00Z`) - Date.parse(`${firstDay}T00:00:00Z`)) / 86_400_000) + 1;
+  const startDay = totalDays > maxDays ? shiftDay(lastDay, 1 - maxDays) : firstDay;
+  const days: string[] = [];
+  for (let index = 0; index < Math.min(totalDays, maxDays); index += 1) days.push(shiftDay(startDay, index));
+  const selects = days.map(() => 'SELECT ? AS value, COUNT(*) AS count FROM filtered WHERE ts >= ? AND ts <= ?').join(' UNION ALL ');
+  const dayParams = days.flatMap((value) => {
+    const range = localDayRange(value);
+    return [value, Math.max(from, range?.from ?? from), Math.min(to, range?.to ?? to)];
+  });
+  const rows = db.prepare(`WITH filtered AS (${activityUnion}) ${selects}`).all(...params, ...dayParams) as ActivityBreakdown[];
+  return rows.filter((row) => row.count > 0).slice(-31);
 }
 
 export function queryActivity(options: ActivityQuery = {}): ActivityQueryResult {
@@ -189,18 +215,15 @@ export function queryActivity(options: ActivityQuery = {}): ActivityQueryResult 
   const actorRows = db.prepare(`SELECT actor AS value, COUNT(*) AS count FROM (${activityUnion}) GROUP BY actor ORDER BY value ASC`).all(...activityFilter.params) as ActivityBreakdown[];
   const outcomeRows = db.prepare(`SELECT outcome AS value, COUNT(*) AS count FROM (${activityUnion}) GROUP BY outcome ORDER BY value ASC`).all(...activityFilter.params) as ActivityBreakdown[];
   const partialRows = db.prepare(`SELECT CASE WHEN partial = 1 THEN 'partial' ELSE 'complete' END AS value, COUNT(*) AS count FROM (${activityUnion}) GROUP BY partial ORDER BY value ASC`).all(...activityFilter.params) as ActivityBreakdown[];
-  const trendRows = db.prepare(`SELECT ts FROM (${activityUnion}) ORDER BY ts DESC`).all(...activityFilter.params) as Array<{ ts: number }>;
-  trendRows.reverse();
-  const trendMap = new Map<string, number>();
-  for (const row of trendRows) trendMap.set(localDay(row.ts), (trendMap.get(localDay(row.ts)) ?? 0) + 1);
-  const trend = [...trendMap].map(([value, count]) => ({ value, count })).slice(-31);
+  const trend = trendPoints(db, activityUnion, activityFilter.params, options.from ?? 0, options.to ?? Date.now());
   const legacySummary = db.prepare(`SELECT COUNT(*) AS count, COUNT(DISTINCT ip) AS uniqueIps FROM lookups WHERE ${legacyFilter.sql}`).get(...legacyFilter.params) as { count: number; uniqueIps: number };
+  const order = options.sort === 'asc' ? 'ASC' : 'DESC';
   const events = db
-    .prepare(`SELECT id, 'activity' AS source, ip, iso, ts, lookup_type AS lookupType, channel, actor, target, outcome, partial FROM activity_events WHERE ${activityFilter.sql} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?`)
+    .prepare(`SELECT id, 'activity' AS source, ip, iso, ts, lookup_type AS lookupType, channel, actor, target, outcome, partial FROM activity_events WHERE ${activityFilter.sql} ORDER BY ts ${order}, id ${order} LIMIT ? OFFSET ?`)
     .all(...activityFilter.params, normalizedLimit(options.limit), normalizedOffset(options.offset)) as Array<Omit<ActivityRow, 'partial'> & { partial: number }>;
   const legacyRows = db
-    .prepare(`SELECT NULL AS id, 'legacy' AS source, ip, iso, ts, 'legacy' AS lookupType, 'unknown' AS channel, 'unknown' AS actor, NULL AS target, 'unknown' AS outcome, 0 AS partial FROM lookups WHERE ${legacyFilter.sql} ORDER BY ts DESC, ip ASC`)
-    .all(...legacyFilter.params) as Array<Omit<ActivityRow, 'partial'> & { partial: number }>;
+    .prepare(`SELECT NULL AS id, 'legacy' AS source, ip, iso, ts, 'legacy' AS lookupType, 'unknown' AS channel, 'unknown' AS actor, NULL AS target, 'unknown' AS outcome, 0 AS partial FROM lookups WHERE ${legacyFilter.sql} ORDER BY ts ${order}, ip ASC LIMIT ? OFFSET ?`)
+    .all(...legacyFilter.params, normalizedLimit(options.limit), normalizedOffset(options.offset)) as Array<Omit<ActivityRow, 'partial'> & { partial: number }>;
   const normalizedEvents = events.map((row) => ({ ...row, partial: row.partial === 1 })) as ActivityRow[];
   const normalizedLegacy = legacyRows.map((row) => ({ ...row, partial: false })) as ActivityRow[];
   return {

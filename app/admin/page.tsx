@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { unstable_noStore as noStore } from 'next/cache';
 import { notFound } from 'next/navigation';
 import { ADMIN_SESSION_COOKIE, isAdminEnabled, verifyAdminSession } from '@/lib/admin-auth';
-import { adminDateRange, containerDate } from '@/lib/admin-date';
+import { adminDateRange, containerDate, containerTimezone } from '@/lib/admin-date';
 import { queryActivity, type ActivityQueryResult } from '@/lib/activity';
 import { getDb, getRetentionDays } from '@/lib/db';
 import { getResourceSamplerStatus } from '@/lib/resources';
@@ -84,7 +84,7 @@ export default async function Page() {
 
   return (
     <div className="admin-shell">
-      <AdminControls today={today} timezone={process.env.TZ || 'UTC'} initialActivity={activity} initialResources={resources} initialActivityError={activityError} initialResourceError={resourceError} />
+      <AdminControls today={today} timezone={containerTimezone()} initialActivity={activity} initialResources={resources} initialActivityError={activityError} initialResourceError={resourceError} />
     </div>
   );
 }

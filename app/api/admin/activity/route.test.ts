@@ -60,14 +60,17 @@ describe('GET /api/admin/activity', () => {
     const impossibleDate = await GET(new Request('https://echo.test/api/admin/activity?from=2026-02-30', { headers: { cookie } }));
     const future = await GET(new Request('https://echo.test/api/admin/activity?to=2999-01-01', { headers: { cookie } }));
     const invalidFilter = await GET(new Request('https://echo.test/api/admin/activity?type=unknown', { headers: { cookie } }));
+    const invalidSort = await GET(new Request('https://echo.test/api/admin/activity?sort=sideways', { headers: { cookie } }));
     const tooWide = await GET(new Request('https://echo.test/api/admin/activity?from=2020-01-01&to=2026-08-20', { headers: { cookie } }));
 
     expect(invalidDate.status).toBe(400);
     expect(impossibleDate.status).toBe(400);
     expect(future.status).toBe(400);
     expect(invalidFilter.status).toBe(400);
+    expect(invalidSort.status).toBe(400);
     expect(tooWide.status).toBe(400);
     expect(await invalidDate.json()).toEqual({ error: 'invalid input', code: 'invalid_input' });
+    expect(await invalidSort.json()).toEqual({ error: 'invalid input', code: 'invalid_input' });
   });
 
   it('applies bounded filters and pagination to activity results', async () => {

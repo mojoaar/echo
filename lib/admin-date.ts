@@ -15,7 +15,7 @@ export interface AdminDateRange {
   to: number;
 }
 
-function timeZone(): string {
+export function containerTimezone(): string {
   const configured = process.env.TZ?.trim();
   if (!configured) return 'UTC';
   try {
@@ -28,7 +28,7 @@ function timeZone(): string {
 
 function dateParts(timestamp: number): DateParts {
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: timeZone(),
+    timeZone: containerTimezone(),
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -86,6 +86,13 @@ function localMidnight(value: string): number | null {
     .filter((timestamp) => dateValue(dateParts(timestamp)) >= value)
     .sort((left, right) => left - right);
   return candidates[0] ?? null;
+}
+
+export function localDayRange(value: string): AdminDateRange | null {
+  const from = localMidnight(value);
+  const end = localMidnight(shiftDate(value, 1));
+  if (from === null || end === null) return null;
+  return { from, to: end - 1 };
 }
 
 export function containerDate(timestamp = Date.now()): string {
