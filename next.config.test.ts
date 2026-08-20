@@ -76,11 +76,11 @@ describe('security headers', () => {
   });
 
   it('documents proxy-owned HSTS and the LAN trust boundary', () => {
-    const readme = readFileSync(new URL('./README.md', import.meta.url), 'utf8');
+    const docs = readFileSync(new URL('./app/docs/page.tsx', import.meta.url), 'utf8');
 
-    expect(readme).toMatch(/HSTS/i);
-    expect(readme).toMatch(/external TLS proxy/i);
-    expect(readme).toMatch(/NPM[^\n]*overwrite|overwrite[^\n]*NPM/i);
-    expect(readme).toMatch(/firewall/i);
+    expect(docs).toMatch(/HSTS/i);
+    expect(docs).toMatch(/external TLS proxy/i);
+    expect(docs).toMatch(/NPM[^\n]*overwrite|overwrite[^\n]*NPM/i);
+    expect(docs).toMatch(/firewall/i);
   });
 });

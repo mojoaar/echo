@@ -338,13 +338,13 @@ export default function DocsPage() {
 docker compose up -d`}</Code>
           <p>
             The service listens on port 3100. Keep the host firewall closed to direct
-            access if a reverse proxy is the only intended entry point; TLS terminates
-            at the proxy. Data persists in the <code>echo-data</code> volume.
+            access if a reverse proxy is the only intended entry point; TLS and HSTS
+            are owned by the external TLS proxy. Data persists in the <code>echo-data</code> volume.
           </p>
 
           <h2 id="nginx">Nginx Proxy Manager</h2>
           <p>
-            NPM 2.x Proxy Hosts automatically set <code>X-Real-IP</code>,{' '}
+            NPM 2.x Proxy Hosts automatically overwrite <code>X-Real-IP</code>,{' '}
             <code>X-Forwarded-For</code>, <code>X-Forwarded-Proto</code> and{' '}
             <code>X-Forwarded-Host</code>, so a single-hop setup needs no manual
             configuration. echo trusts <code>X-Real-IP</code> first.
