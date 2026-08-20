@@ -63,18 +63,24 @@ describe('resolveRecords', () => {
     const resolver = stubResolver({
       A: ['87.104.91.82'],
       AAAA: ['2606:4700:4700::1111'],
+      CNAME: ['www.example.com'],
       MX: [{ exchange: 'mx.example.com', priority: 10 }],
       NS: ['ns1.example.com'],
-      TXT: [['v=spf1 include:_spf.example.com'], ['alpha', 'beta']],
       SOA: { nsname: 'ns1.example.com', hostmaster: 'hostmaster.example.com' },
+      SRV: [{ name: 'mail.example.com', port: 443, priority: 1, weight: 5 }],
+      TXT: [['v=spf1 include:_spf.example.com'], ['alpha', 'beta']],
+      CAA: [{ critical: false, issue: 'letsencrypt.org' }, { critical: true, issue: 'ca.example.net' }],
     });
     const result = await resolveRecords('example.com', resolver);
     expect(result.records.a).toEqual(['87.104.91.82']);
     expect(result.records.aaaa).toEqual(['2606:4700:4700::1111']);
+    expect(result.records.cname).toEqual(['www.example.com']);
     expect(result.records.mx).toEqual(['[10] mx.example.com']);
     expect(result.records.ns).toEqual(['ns1.example.com']);
     expect(result.records.txt).toEqual(['v=spf1 include:_spf.example.com', 'alphabeta']);
     expect(result.records.soa).toEqual(['ns1.example.com hostmaster.example.com']);
+    expect(result.records.srv).toEqual(['[1 5] mail.example.com:443']);
+    expect(result.records.caa).toEqual(['letsencrypt.org', '[critical] ca.example.net']);
     expect(result.cache).toBe('miss');
     expect(result.resolvedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
@@ -83,7 +89,7 @@ describe('resolveRecords', () => {
 
   it('returns empty arrays for missing or failing types', async () => {
     const result = await resolveRecords('example.com', stubResolver({}));
-    expect(result.records).toEqual({ a: [], aaaa: [], mx: [], ns: [], txt: [], soa: [] });
+    expect(result.records).toEqual({ a: [], aaaa: [], cname: [], mx: [], ns: [], soa: [], srv: [], txt: [], caa: [] });
     expect(result.partial).toBe(false);
   });
 
@@ -161,7 +167,7 @@ describe('resolveRecords', () => {
     expect(first.cache).toBe('miss');
     expect(second.cache).toBe('hit');
     expect(second.records).toEqual(first.records);
-    expect(calls).toBe(6);
+    expect(calls).toBe(9);
   });
 
   it('deduplicates concurrent lookups for the same normalized name', async () => {
@@ -177,7 +183,7 @@ describe('resolveRecords', () => {
       resolveRecords('Concurrent.Example.COM', resolver),
       resolveRecords('concurrent.example.com', resolver),
     ]);
-    expect(calls).toBe(6);
+    expect(calls).toBe(9);
     expect(first.cache).toBe('miss');
     expect(second.cache).toBe('hit');
   });
@@ -235,7 +241,7 @@ describe('resolveRecords', () => {
     const result = await resolveRecords('expiry.example.com', resolver);
 
     expect(result.cache).toBe('miss');
-    expect(calls).toBe(12);
+    expect(calls).toBe(18);
   });
 
   it('expires partial results after the failure cache TTL', async () => {
@@ -258,7 +264,7 @@ describe('resolveRecords', () => {
     expect(first.partial).toBe(true);
     expect(cached.cache).toBe('hit');
     expect(expired.cache).toBe('miss');
-    expect(calls).toBe(12);
+    expect(calls).toBe(18);
   });
 
   it('evicts the oldest entry when the cache reaches its maximum size', async () => {
@@ -277,6 +283,6 @@ describe('resolveRecords', () => {
     const evicted = await resolveRecords('oldest.example.com', resolver);
 
     expect(evicted.cache).toBe('miss');
-    expect(calls).toBe(24);
+    expect(calls).toBe(36);
   });
 });

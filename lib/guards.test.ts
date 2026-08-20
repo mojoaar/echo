@@ -11,10 +11,13 @@ const dnsResponse = {
   records: {
     a: ['192.0.2.1'],
     aaaa: [],
+    cname: [],
     mx: ['[10] mail.example.com'],
     ns: [],
-    txt: ['v=spf1 -all'],
     soa: [],
+    srv: [],
+    txt: ['v=spf1 -all'],
+    caa: [],
   },
 };
 

@@ -8,7 +8,7 @@ async function stubOptionalLookups(page: Page) {
       contentType: 'application/json',
       body: JSON.stringify({
         name: 'example.com',
-        records: { a: ['93.184.216.34'], aaaa: [], mx: [], ns: [], txt: [], soa: [] },
+        records: { a: ['93.184.216.34'], aaaa: [], cname: [], mx: [], ns: [], soa: [], srv: [], txt: [], caa: [] },
         cache: 'miss',
         resolvedAt: '2026-08-19T20:15:03',
         durationMs: 12,

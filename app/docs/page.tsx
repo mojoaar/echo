@@ -113,7 +113,7 @@ export default function DocsPage() {
           <ul>
             <li>Shows your public IP and geo information from a bundled database</li>
             <li>Looks up any IP via <code>?ip=</code> on the home page or the API</li>
-            <li>Resolves forward DNS records (A, AAAA, MX, NS, TXT, SOA)</li>
+            <li>Resolves forward DNS records (A, AAAA, CNAME, MX, NS, TXT, SOA, SRV, CAA)</li>
             <li>Queries WHOIS/RDAP registration and ASN data on demand</li>
             <li>Runs an optional IPv4/IPv6 connectivity diagnostic from your browser</li>
             <li>Logs aggregate lookup statistics — never raw visitor IPs publicly</li>
@@ -249,7 +249,7 @@ export default function DocsPage() {
 }`}</Code>
           </Endpoint>
 
-          <Endpoint id="api-dns" method="GET" path="/api/dns" desc="Resolves A, AAAA, MX, NS, TXT and SOA records for ?name= with cache metadata.">
+          <Endpoint id="api-dns" method="GET" path="/api/dns" desc="Resolves A, AAAA, CNAME, MX, NS, TXT, SOA, SRV and CAA records for ?name= with cache metadata.">
             <Code>{`curl "${siteUrl}/api/dns?name=example.com"`}</Code>
             <Code>{`{
   "name": "example.com",

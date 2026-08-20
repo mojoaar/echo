@@ -8,10 +8,13 @@ type Group = { type: string; values: string[] };
 const GROUPS: Array<{ type: string; key: keyof DnsRecords }> = [
   { type: 'A', key: 'a' },
   { type: 'AAAA', key: 'aaaa' },
+  { type: 'CNAME', key: 'cname' },
   { type: 'MX', key: 'mx' },
   { type: 'NS', key: 'ns' },
-  { type: 'TXT', key: 'txt' },
   { type: 'SOA', key: 'soa' },
+  { type: 'SRV', key: 'srv' },
+  { type: 'TXT', key: 'txt' },
+  { type: 'CAA', key: 'caa' },
 ];
 
 export default function DnsSection() {

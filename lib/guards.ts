@@ -104,7 +104,7 @@ function isAbuse(value: unknown): value is { email: string | null; phone: string
 export function isDnsResponse(value: unknown): value is DnsResponse {
   if (!isRecord(value) || typeof value.name !== 'string' || !isRecord(value.records)) return false;
   const records = value.records;
-  return ['a', 'aaaa', 'mx', 'ns', 'txt', 'soa'].every((key) => isStringArray(records[key]));
+  return ['a', 'aaaa', 'cname', 'mx', 'ns', 'soa', 'srv', 'txt', 'caa'].every((key) => isStringArray(records[key]));
 }
 function isRdapInfoResponse(value: unknown): value is RdapInfoResponse {
   if (!isRecord(value)) return false;

@@ -5,10 +5,13 @@ import { isPublicIp, normalizeIp } from './ip';
 export interface DnsRecords {
   a: string[];
   aaaa: string[];
+  cname: string[];
   mx: string[];
   ns: string[];
-  txt: string[];
   soa: string[];
+  srv: string[];
+  txt: string[];
+  caa: string[];
 }
 
 export interface DnsLookupResult {
@@ -42,8 +45,18 @@ const DNS_CACHE_TTL_MS = 30_000;
 const DNS_FAILURE_TTL_MS = 5_000;
 const DNS_CACHE_MAX = 100;
 const LABEL_RE = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
-const RECORD_TYPES = ['a', 'aaaa', 'mx', 'ns', 'txt', 'soa'] as const;
-const RRTYPES = { a: 'A', aaaa: 'AAAA', mx: 'MX', ns: 'NS', txt: 'TXT', soa: 'SOA' } as const;
+const RECORD_TYPES = ['a', 'aaaa', 'cname', 'mx', 'ns', 'soa', 'srv', 'txt', 'caa'] as const;
+const RRTYPES = {
+  a: 'A',
+  aaaa: 'AAAA',
+  cname: 'CNAME',
+  mx: 'MX',
+  ns: 'NS',
+  soa: 'SOA',
+  srv: 'SRV',
+  txt: 'TXT',
+  caa: 'CAA',
+} as const;
 const DISALLOWED_SUFFIXES = [
   '.local',
   '.internal',
@@ -101,7 +114,7 @@ export function isPublicHostname(name: string): boolean {
 }
 
 function empty(): DnsRecords {
-  return { a: [], aaaa: [], mx: [], ns: [], txt: [], soa: [] };
+  return { a: [], aaaa: [], cname: [], mx: [], ns: [], soa: [], srv: [], txt: [], caa: [] };
 }
 
 function normalize(rrtype: string, value: unknown): string[] {
@@ -116,6 +129,16 @@ function normalize(rrtype: string, value: unknown): string[] {
   if (rrtype === 'SOA' && value && typeof value === 'object') {
     const soa = value as { nsname?: string; hostmaster?: string };
     return [soa.nsname && soa.hostmaster ? `${soa.nsname} ${soa.hostmaster}` : ''].filter(Boolean);
+  }
+  if (rrtype === 'SRV' && Array.isArray(value)) {
+    return (value as Array<{ name: string; port: number; priority: number; weight: number }>).map(
+      (s) => `[${s.priority} ${s.weight}] ${s.name}:${s.port}`,
+    );
+  }
+  if (rrtype === 'CAA' && Array.isArray(value)) {
+    return (value as Array<{ critical: boolean; issue: string }>).map((c) =>
+      c.critical ? `[critical] ${c.issue}` : c.issue,
+    );
   }
   return Array.isArray(value) ? (value as string[]) : [];
 }
@@ -236,10 +259,13 @@ async function resolveUncached(
     records: {
       a: values[0],
       aaaa: values[1],
-      mx: values[2],
-      ns: values[3],
-      txt: values[4],
+      cname: values[2],
+      mx: values[3],
+      ns: values[4],
       soa: values[5],
+      srv: values[6],
+      txt: values[7],
+      caa: values[8],
     },
     cache: 'miss',
     resolvedAt: new Date().toISOString(),

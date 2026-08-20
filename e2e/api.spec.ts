@@ -17,7 +17,7 @@ test('DNS error and partial states are deterministic through route interception'
         contentType: 'application/json',
         body: JSON.stringify({
           name: 'partial.example.com',
-          records: { a: ['192.0.2.1'], aaaa: [], mx: [], ns: [], txt: [], soa: [] },
+          records: { a: ['192.0.2.1'], aaaa: [], cname: [], mx: [], ns: [], soa: [], srv: [], txt: [], caa: [] },
           cache: 'hit',
           resolvedAt: '2026-08-19T12:00:00.000Z',
           durationMs: 3,
