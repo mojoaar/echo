@@ -17,18 +17,20 @@ function MethodBadge({ method }: { method: string }) {
 }
 
 function Endpoint({
+  id,
   method,
   path,
   desc,
   children,
 }: {
+  id?: string;
   method: string;
   path: string;
   desc: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="endpoint">
+    <div id={id} className="endpoint">
       <h4>
         <MethodBadge method={method} /> <code>{path}</code>
       </h4>
@@ -195,14 +197,14 @@ export default function DocsPage() {
             </tbody>
           </table>
 
-          <Endpoint method="GET" path="/api/ip" desc="Returns the visitor IP as plain text, or a specific IP when ?ip= is provided.">
+          <Endpoint id="api-ip" method="GET" path="/api/ip" desc="Returns the visitor IP as plain text, or a specific IP when ?ip= is provided.">
             <Code>{`curl ${siteUrl}/api/ip`}</Code>
             <Code>{`203.0.113.7`}</Code>
             <Code>{`curl "${siteUrl}/api/ip?ip=8.8.8.8"`}</Code>
             <Code>{`8.8.8.8`}</Code>
           </Endpoint>
 
-          <Endpoint method="GET" path="/api/json" desc="Returns the full normalized lookup payload for the visitor or for ?ip=.">
+          <Endpoint id="api-json" method="GET" path="/api/json" desc="Returns the full normalized lookup payload for the visitor or for ?ip=.">
             <Code>{`curl "${siteUrl}/api/json?ip=8.8.8.8"`}</Code>
             <Code>{`{
   "ip": "8.8.8.8",
@@ -222,7 +224,7 @@ export default function DocsPage() {
 }`}</Code>
           </Endpoint>
 
-          <Endpoint method="GET" path="/api/whois" desc="Returns WHOIS/RDAP registration and ASN data for ?ip= (on demand, cached).">
+          <Endpoint id="api-whois" method="GET" path="/api/whois" desc="Returns WHOIS/RDAP registration and ASN data for ?ip= (on demand, cached).">
             <Code>{`curl "${siteUrl}/api/whois?ip=8.8.8.8"`}</Code>
             <Code>{`{
   "ip": {
@@ -245,7 +247,7 @@ export default function DocsPage() {
 }`}</Code>
           </Endpoint>
 
-          <Endpoint method="GET" path="/api/dns" desc="Resolves A, AAAA, MX, NS, TXT and SOA records for ?name= with cache metadata.">
+          <Endpoint id="api-dns" method="GET" path="/api/dns" desc="Resolves A, AAAA, MX, NS, TXT and SOA records for ?name= with cache metadata.">
             <Code>{`curl "${siteUrl}/api/dns?name=example.com"`}</Code>
             <Code>{`{
   "name": "example.com",
@@ -264,7 +266,7 @@ export default function DocsPage() {
 }`}</Code>
           </Endpoint>
 
-          <Endpoint method="GET" path="/api/history" desc="Returns aggregate lookup statistics: totals and top countries, never raw IPs.">
+          <Endpoint id="api-history" method="GET" path="/api/history" desc="Returns aggregate lookup statistics: totals and top countries, never raw IPs.">
             <Code>{`curl ${siteUrl}/api/history`}</Code>
             <Code>{`{
   "total": 1234,
@@ -276,7 +278,7 @@ export default function DocsPage() {
 }`}</Code>
           </Endpoint>
 
-          <Endpoint method="GET" path="/api/stats" desc="Private owner analytics guarded by STATS_TOKEN. Pass ?token= or an Authorization: Bearer header.">
+          <Endpoint id="api-stats" method="GET" path="/api/stats" desc="Private owner analytics guarded by STATS_TOKEN. Pass ?token= or an Authorization: Bearer header.">
             <Code>{`curl -H "Authorization: Bearer $STATS_TOKEN" ${siteUrl}/api/stats`}</Code>
             <Code>{`{
   "total": 1234,
@@ -287,7 +289,7 @@ export default function DocsPage() {
 }`}</Code>
           </Endpoint>
 
-          <Endpoint method="GET" path="/api/health" desc="Public liveness check returning {status:ok}. Readiness detail requires the HEALTH_TOKEN.">
+          <Endpoint id="api-health" method="GET" path="/api/health" desc="Public liveness check returning {status:ok}. Readiness detail requires the HEALTH_TOKEN.">
             <Code>{`curl ${siteUrl}/api/health`}</Code>
             <Code>{`{ "status": "ok" }`}</Code>
           </Endpoint>
