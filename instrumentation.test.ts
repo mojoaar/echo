@@ -11,6 +11,7 @@ describe('instrumentation', () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
     delete process.env.ADMIN_TOKEN;
   });
 

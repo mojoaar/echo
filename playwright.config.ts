@@ -2,6 +2,11 @@ import { defineConfig, devices } from '@playwright/test';
 
 const unconfiguredPort = process.env.ECHO_PLAYWRIGHT_PORT ?? '3000';
 const unconfiguredDistDir = process.env.ECHO_PLAYWRIGHT_DIST_DIR ?? '.next/playwright-unconfigured';
+const adminPort = process.env.ECHO_PLAYWRIGHT_ADMIN_PORT ?? '3002';
+const adminDistDir = process.env.ECHO_PLAYWRIGHT_ADMIN_DIST_DIR ?? '.next/playwright-admin';
+const unconfiguredDbPath = `${process.cwd()}/.next/playwright-unconfigured/echo.db`;
+const configuredDbPath = `${process.cwd()}/.next/playwright-configured/echo.db`;
+const adminDbPath = `${process.cwd()}/.next/playwright-admin/echo.db`;
 
 export default defineConfig({
   testDir: './e2e',
@@ -21,7 +26,19 @@ export default defineConfig({
     {
       name: 'desktop-chromium',
       use: { ...devices['Desktop Chrome'] },
-      testMatch: /home\.spec\.ts|api\.spec\.ts|admin\.spec\.ts/,
+      testMatch: /home\.spec\.ts|api\.spec\.ts/,
+    },
+    {
+      name: 'admin-desktop',
+      use: { ...devices['Desktop Chrome'], baseURL: `http://127.0.0.1:${adminPort}` },
+      testMatch: /admin\.spec\.ts/,
+      grepInvert: /mobile admin/,
+    },
+    {
+      name: 'mobile-admin',
+      use: { ...devices['Pixel 5'], baseURL: `http://127.0.0.1:${adminPort}` },
+      testMatch: /admin\.spec\.ts/,
+      grep: /mobile admin/,
     },
     {
       name: 'mobile-safari',
@@ -42,10 +59,14 @@ export default defineConfig({
       command: `npm run dev -- --hostname 127.0.0.1 --port ${unconfiguredPort}`,
       url: `http://127.0.0.1:${unconfiguredPort}/api/health`,
       env: {
+        NODE_ENV: 'test',
         ADMIN_TOKEN: 'test-admin-token',
+        HEALTH_TOKEN: '',
+        STATS_TOKEN: '',
         CONNECTIVITY_IPV4_URL: '',
         CONNECTIVITY_IPV6_URL: '',
         NEXT_DIST_DIR: unconfiguredDistDir,
+        DB_PATH: unconfiguredDbPath,
       },
       reuseExistingServer: false,
       timeout: 120_000,
@@ -54,9 +75,30 @@ export default defineConfig({
       command: 'npm run dev -- --hostname 127.0.0.1 --port 3001',
       url: 'http://127.0.0.1:3001/api/health',
       env: {
+        NODE_ENV: 'test',
         CONNECTIVITY_IPV4_URL: 'https://ipv4-probe.example.test/probe',
         CONNECTIVITY_IPV6_URL: 'https://ipv6-probe.example.test/probe',
         NEXT_DIST_DIR: '.next/playwright-configured',
+        ADMIN_TOKEN: '',
+        HEALTH_TOKEN: '',
+        STATS_TOKEN: '',
+        DB_PATH: configuredDbPath,
+      },
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      command: `npm run dev -- --hostname 127.0.0.1 --port ${adminPort}`,
+      url: `http://127.0.0.1:${adminPort}/api/health`,
+      env: {
+        NODE_ENV: 'test',
+        ADMIN_TOKEN: 'test-admin-token',
+        HEALTH_TOKEN: '',
+        STATS_TOKEN: '',
+        CONNECTIVITY_IPV4_URL: '',
+        CONNECTIVITY_IPV6_URL: '',
+        NEXT_DIST_DIR: adminDistDir,
+        DB_PATH: adminDbPath,
       },
       reuseExistingServer: false,
       timeout: 120_000,
