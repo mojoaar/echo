@@ -19,12 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.2] - 2026-08-19
 
+### Fixed
+
+- Container vulnerability scanning now uses the current Trivy action release with a valid tag
+
 ## [1.4.1] - 2026-08-19
 
 ### Fixed
 
 - CI version-sensitive health tests, consolidated WHOIS browser assertions, and mobile Safari theme keyboard coverage
-- Container vulnerability scanning now uses the current Trivy action release with a valid tag
 
 ### Changed
 
