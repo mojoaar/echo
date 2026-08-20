@@ -54,7 +54,7 @@ jobs:
       - run: npx playwright install --with-deps chromium webkit
       - run: npx playwright test
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
@@ -115,7 +115,7 @@ jobs:
           format: cyclonedx-json
           artifact-name: echo-sbom.cdx.json
           output-file: echo-sbom.cdx.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: echo-sbom
           path: echo-sbom.cdx.json
