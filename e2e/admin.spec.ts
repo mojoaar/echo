@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 const ADMIN_TOKEN = 'test-admin-token';
+const STATS_TOKEN = 'test-stats-token';
 const configuredPort = process.env.ECHO_PLAYWRIGHT_CONFIGURED_PORT ?? '3001';
 
 test.describe.configure({ mode: 'serial' });
@@ -14,6 +15,12 @@ async function signIn(page: import('@playwright/test').Page) {
 
 function adminAlert(page: import('@playwright/test').Page) {
   return page.locator('p[role="alert"]');
+}
+
+async function readCompletedResponse(response: import('@playwright/test').Response) {
+  const error = await response.finished();
+  if (error) throw error;
+  return { url: response.url(), body: await response.text() };
 }
 
 function activityPayload(events = [
@@ -197,21 +204,52 @@ test('filters activity and renders the table, resource cards, and charts', async
 });
 
 test('does not include the admin token in HTML or network response bodies', async ({ page }) => {
-  const responseBodies: Promise<string>[] = [];
-  page.on('requestfinished', (request) => {
-    if ((request.resourceType() === 'fetch' || request.resourceType() === 'xhr') && new URL(request.url()).pathname.startsWith('/api/admin/')) {
-      responseBodies.push(request.response().then((response) => response?.text() ?? '').catch(() => ''));
-    }
-  });
-  await signIn(page);
+  const requestUrls: string[] = [];
+  const completedResponses: Array<{ url: string; body: string }> = [];
+  page.on('request', (request) => requestUrls.push(request.url()));
+
+  const initialDocument = await page.goto('/admin');
+  if (!initialDocument) throw new Error('Admin page navigation did not return a response.');
+  completedResponses.push(await readCompletedResponse(initialDocument));
+
+  const loginResponse = await page.evaluate(async (token) => {
+    const response = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token }),
+      credentials: 'same-origin',
+    });
+    return { url: response.url, body: await response.text() };
+  }, ADMIN_TOKEN);
+  completedResponses.push(loginResponse);
+  const dashboardDocument = await page.goto('/admin');
+  if (!dashboardDocument) throw new Error('Authenticated admin navigation did not return a response.');
+  completedResponses.push(await readCompletedResponse(dashboardDocument));
+
   await stubAdminData(page);
-  const activityResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/admin/activity');
-  const resourcesResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/admin/resources');
+  const sessionResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/admin/session');
+  const sessionFetchPromise = page.evaluate(() => fetch('/api/admin/session', { credentials: 'same-origin', cache: 'no-store' }).then((response) => response.text()));
+  const sessionResponse = await sessionResponsePromise;
+  const sessionBody = await sessionFetchPromise;
+  const completedSession = await readCompletedResponse(sessionResponse);
+  expect(sessionBody).toBe(completedSession.body);
+  completedResponses.push(completedSession);
+
+  const activityResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/admin/activity');
+  const resourcesResponsePromise = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/admin/resources');
   await page.getByRole('button', { name: 'Apply filters' }).click();
-  await Promise.all([activityResponse, resourcesResponse]);
+  const [activityResponse, resourcesResponse] = await Promise.all([activityResponsePromise, resourcesResponsePromise]);
+  completedResponses.push(await readCompletedResponse(activityResponse), await readCompletedResponse(resourcesResponse));
   await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
-  expect(await page.content()).not.toContain(ADMIN_TOKEN);
-  for (const body of await Promise.all(responseBodies)) expect(body).not.toContain(ADMIN_TOKEN);
+  const inspectedValues = [
+    ...requestUrls,
+    ...completedResponses.flatMap(({ url, body }) => [url, body]),
+    await page.content(),
+  ];
+  for (const value of inspectedValues) {
+    expect(value).not.toContain(ADMIN_TOKEN);
+    expect(value).not.toContain(STATS_TOKEN);
+  }
 });
 
 test.describe('mobile admin', () => {
