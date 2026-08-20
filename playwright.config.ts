@@ -36,7 +36,7 @@ export default defineConfig({
     {
       name: 'desktop-chromium',
       use: { ...devices['Desktop Chrome'] },
-      testMatch: /home\.spec\.ts|api\.spec\.ts/,
+      testMatch: /home\.spec\.ts|api\.spec\.ts|docs\.spec\.ts/,
     },
     {
       name: 'admin-desktop',
@@ -53,7 +53,7 @@ export default defineConfig({
     {
       name: 'mobile-safari',
       use: { ...devices['iPhone 13'] },
-      testMatch: /mobile\.spec\.ts/,
+      testMatch: /mobile\.spec\.ts|docs\.spec\.ts/,
     },
     {
       name: 'configured-probes',
