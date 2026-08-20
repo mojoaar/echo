@@ -23,6 +23,7 @@ const emptyResources: AdminResources = {
   sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null },
   history: [],
   storage: null,
+  volumeFreeBytes: null,
 };
 
 async function apiErrorMessage(response: Response, fallback: string): Promise<string> {
@@ -163,7 +164,7 @@ export default function AdminControls({ today, timezone, initialActivity, initia
       </section>
       <ActivityTable result={activity} timezone={timezone} page={page} hasNext={activity.events.length === 50} onPrevious={() => load(preset, from, to, page - 1)} onNext={() => load(preset, from, to, page + 1)} />
       <ResourceCards resources={resources} timezone={timezone} error={resourceError} />
-      <ResourceCharts history={resources.history} />
+      <ResourceCharts history={resources.history} timezone={timezone} />
     </main>
   );
 }

@@ -6,7 +6,7 @@ import { ADMIN_SESSION_COOKIE, isAdminEnabled, verifyAdminSession } from '@/lib/
 import { adminDateRange, containerDate, containerTimezone } from '@/lib/admin-date';
 import { queryActivity, type ActivityQueryResult } from '@/lib/activity';
 import { getDb, getRetentionDays, readDatabaseBreakdown } from '@/lib/db';
-import { getResourceSamplerStatus } from '@/lib/resources';
+import { dataVolumeFreeBytes, getResourceSamplerStatus } from '@/lib/resources';
 import AdminLogin from '@/components/admin/AdminLogin';
 import AdminControls from '@/components/admin/AdminControls';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -35,24 +35,27 @@ function resourceRow(row: Record<string, unknown>): AdminResourceRow {
     uptimeSeconds: typeof row.uptimeSeconds === 'number' ? row.uptimeSeconds : row.uptime_seconds as number | null,
     localTs: typeof row.localTs === 'string' ? row.localTs : row.local_ts as string | null,
     imageSizeBytes: typeof row.imageSizeBytes === 'number' ? row.imageSizeBytes : row.image_size_bytes as number | null,
+    networkIngressBps: typeof row.networkIngressBps === 'number' ? row.networkIngressBps : row.network_ingress_bps as number | null,
+    networkEgressBps: typeof row.networkEgressBps === 'number' ? row.networkEgressBps : row.network_egress_bps as number | null,
   };
 }
 
 function initialResources(): AdminResources {
   const range = adminDateRange(new URL('https://echo.test/admin'), 30);
-  if (!range) return { current: null, sampler: getResourceSamplerStatus(), history: [], storage: null };
+  if (!range) return { current: null, sampler: getResourceSamplerStatus(), history: [], storage: null, volumeFreeBytes: dataVolumeFreeBytes() };
   const db = getDb();
   const current = db.prepare(
-    'SELECT ts, cpu_percent, memory_used_bytes, memory_limit_bytes, data_used_bytes, database_bytes, wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts, image_size_bytes FROM resource_samples ORDER BY ts DESC LIMIT 1',
+    'SELECT ts, cpu_percent, memory_used_bytes, memory_limit_bytes, data_used_bytes, database_bytes, wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts, image_size_bytes, network_ingress_bps, network_egress_bps FROM resource_samples ORDER BY ts DESC LIMIT 1',
   ).get() as Record<string, unknown> | undefined;
   const history = db.prepare(
-    'SELECT ts, cpu_percent, memory_used_bytes, memory_limit_bytes, data_used_bytes, database_bytes, wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts, image_size_bytes FROM resource_samples WHERE ts >= ? AND ts <= ? ORDER BY ts DESC LIMIT ?',
+    'SELECT ts, cpu_percent, memory_used_bytes, memory_limit_bytes, data_used_bytes, database_bytes, wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts, image_size_bytes, network_ingress_bps, network_egress_bps FROM resource_samples WHERE ts >= ? AND ts <= ? ORDER BY ts DESC LIMIT ?',
   ).all(range.from, range.to, 1_000) as Array<Record<string, unknown>>;
   return {
     current: current ? resourceRow(current) : null,
     sampler: getResourceSamplerStatus(),
     history: history.map(resourceRow),
     storage: readDatabaseBreakdown(),
+    volumeFreeBytes: dataVolumeFreeBytes(),
   };
 }
 
@@ -80,7 +83,7 @@ export default async function Page() {
   try {
     resources = initialResources();
   } catch {
-    resources = { current: null, sampler: { enabled: true, running: false, lastSuccessTs: null, lastError: 'sample_failed' }, history: [], storage: null };
+    resources = { current: null, sampler: { enabled: true, running: false, lastSuccessTs: null, lastError: 'sample_failed' }, history: [], storage: null, volumeFreeBytes: dataVolumeFreeBytes() };
     resourceError = 'Unable to load resource data.';
   }
 

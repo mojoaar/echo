@@ -45,7 +45,9 @@ CREATE TABLE IF NOT EXISTS resource_samples (
   activity_rows INTEGER,
   uptime_seconds INTEGER,
   local_ts TEXT,
-  image_size_bytes INTEGER
+  image_size_bytes INTEGER,
+  network_ingress_bps REAL,
+  network_egress_bps REAL
 );
 
 CREATE INDEX IF NOT EXISTS idx_resource_samples_ts ON resource_samples(ts DESC);

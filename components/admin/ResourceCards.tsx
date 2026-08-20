@@ -24,6 +24,10 @@ function value(value: number | null): string {
   return value === null ? 'unavailable' : value.toLocaleString();
 }
 
+function rate(value: number | null): string {
+  return value === null ? 'unavailable' : `${bytes(value)}/s`;
+}
+
 function currentValue(current: AdminResourceRow | null, key: keyof AdminResourceRow): number | null {
   const result = current?.[key];
   return typeof result === 'number' ? result : null;
@@ -92,10 +96,11 @@ export default function ResourceCards({ resources, timezone, error = null }: Res
       <div className="admin-resource-grid">
         <div className="admin-resource-card"><span>CPU</span><strong>{cpu === null ? 'unavailable' : `${cpu}%`}</strong><small>{cpu === null ? 'CPU unavailable until the second sample' : 'container CPU'}</small></div>
         <div className="admin-resource-card"><span>Memory</span><strong>{bytes(memoryUsed)}</strong><small>{memoryDetailText}</small></div>
-        <div className="admin-resource-card"><span>/data</span><strong>{bytes(currentValue(current, 'dataUsedBytes'))}</strong><small>persistent usage</small></div>
+        <div className="admin-resource-card"><span>/data</span><strong>{bytes(currentValue(current, 'dataUsedBytes'))}</strong><small>persistent usage{resources.volumeFreeBytes !== null ? ` · volume free ${bytes(resources.volumeFreeBytes)}` : ''}</small></div>
         <div className="admin-resource-card"><span>DB / WAL / SHM</span><strong>{bytes(currentValue(current, 'databaseBytes'))}</strong><small>{bytes(currentValue(current, 'walBytes'))} / {bytes(currentValue(current, 'shmBytes'))}</small><small>other /data {bytes(currentValue(current, 'otherDataBytes'))}</small></div>
         <div className="admin-resource-card"><span>Rows</span><strong>{value(currentValue(current, 'activityRows'))}</strong><small>activity events</small></div>
         <div className="admin-resource-card"><span>Uptime</span><strong>{current?.uptimeSeconds === null || current?.uptimeSeconds === undefined ? 'unavailable' : `${Math.floor(current.uptimeSeconds / 3600)}h ${Math.floor((current.uptimeSeconds % 3600) / 60)}m`}</strong><small>{current?.imageSizeBytes === null || current?.imageSizeBytes === undefined ? 'image size unavailable' : `image ${bytes(current.imageSizeBytes)}`}</small></div>
+        <div className="admin-resource-card"><span>Network</span><strong>↑ {rate(currentValue(current, 'networkIngressBps'))}</strong><small>↓ {rate(currentValue(current, 'networkEgressBps'))} egress · bytes per second</small></div>
       </div>
       <p className="admin-note">Sampler status: {sampler.enabled ? (sampler.running ? 'running' : 'stopped') : 'disabled'}{sampler.lastSuccessTs ? ` · last sample ${timestamp(sampler.lastSuccessTs, timezone)}` : ''}{sampler.lastError ? ` · Last sampler error: ${sampler.lastError}` : ''}</p>
     </section>

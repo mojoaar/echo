@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { closeDb, getDb, initDb } from './db';
 import {
+  dataVolumeFreeBytes,
   getResourceSamplerStatus,
   pruneResourceSamples,
   readResourceSample,
@@ -65,6 +66,7 @@ afterEach(() => {
   delete process.env.ADMIN_TOKEN;
   delete process.env.ECHO_IMAGE_SIZE_BYTES;
   delete process.env.RESOURCE_DATABASE_PATH;
+  delete process.env.RESOURCE_NET_PATH;
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -131,7 +133,11 @@ describe('resource measurements', () => {
     expect(sample.otherDataBytes).toBe(5);
     expect(sample.lookupRows).toBeNull();
     expect(sample.activityRows).toBe(1);
-    expect(sample.dataUsedBytes).toBeGreaterThanOrEqual(19);
+    expect(sample.dataUsedBytes).toBe(19);
+  });
+
+  it('reports free space on the backing data volume', () => {
+    expect(dataVolumeFreeBytes()).toBeGreaterThan(0);
   });
 
   it('does not subtract configured database files outside data from other data', () => {
@@ -182,6 +188,59 @@ describe('resource measurements', () => {
 
     expect(sample.uptimeSeconds).toBe(42);
     expect(sample.imageSizeBytes).toBe(12345);
+  });
+
+  it('returns no network rate until a second network sample is available', () => {
+    const path = join(root, 'net', 'dev');
+    process.env.RESOURCE_NET_PATH = path;
+    setFile(
+      path,
+      `Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+    lo:  123456       1    0    0    0     0          0         0   123456       1    0    0    0     0       0          0
+  eth0: 1000000    1000    0    0    0     0          0         0    500000     500    0    0    0     0       0          0
+`,
+    );
+
+    const first = readResourceSample(1_700_000_000_000);
+    expect(first.networkIngressBps).toBeNull();
+    expect(first.networkEgressBps).toBeNull();
+  });
+
+  it('computes network rates from a /proc/net/dev delta excluding loopback', () => {
+    const path = join(root, 'net', 'dev');
+    process.env.RESOURCE_NET_PATH = path;
+    setFile(
+      path,
+      `Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+    lo: 999999999    1    0    0    0     0          0         0   999999999    1    0    0    0     0       0          0
+  eth0: 1000000    1000    0    0    0     0          0         0    500000     500    0    0    0     0       0          0
+`,
+    );
+    readResourceSample(1_700_000_000_000);
+    setFile(
+      path,
+      `Inter-|   Receive                                                |  Transmit
+ face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+    lo: 999999999    1    0    0    0     0          0         0   999999999    1    0    0    0     0       0          0
+  eth0: 7000000    1000    0    0    0     0          0         0   3500000     500    0    0    0     0       0          0
+`,
+    );
+
+    const second = readResourceSample(1_700_000_001_000);
+
+    expect(second.networkIngressBps).toBe(6_000_000);
+    expect(second.networkEgressBps).toBe(3_000_000);
+  });
+
+  it('returns a null network rate when the network file cannot be read', () => {
+    process.env.RESOURCE_NET_PATH = join(root, 'missing', 'dev');
+
+    const sample = readResourceSample(1_700_000_000_000);
+
+    expect(sample.networkIngressBps).toBeNull();
+    expect(sample.networkEgressBps).toBeNull();
   });
 });
 

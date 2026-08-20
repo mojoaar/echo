@@ -29,6 +29,7 @@ import Page, { metadata } from '@/app/admin/page';
 import AdminControls, { dateRangeForPreset, sameOriginAdminPath } from '@/components/admin/AdminControls';
 import ActivityTable from '@/components/admin/ActivityTable';
 import ResourceCards from '@/components/admin/ResourceCards';
+import ResourceCharts from '@/components/admin/ResourceCharts';
 import AdminLogin from '@/components/admin/AdminLogin';
 
 const emptyActivity = {
@@ -49,6 +50,7 @@ const emptyResources = {
   sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null },
   history: [],
   storage: null,
+  volumeFreeBytes: null,
 };
 
 afterEach(() => {
@@ -215,7 +217,7 @@ describe('admin controls and data states', () => {
     );
 
     expect(html).toContain('aria-label="Activity trend"');
-    expect(html).toContain('<circle');
+    expect(html).toContain('admin-trend-dot');
     expect(html).not.toContain('No activity trend for this range.');
   });
 
@@ -234,7 +236,7 @@ describe('admin controls and data states', () => {
     );
 
     expect(html).toContain('<polyline');
-    expect(html).toContain('<circle');
+    expect(html).toContain('admin-trend-dot');
   });
 
   it('shows the empty message when the range has no activity trend', () => {
@@ -245,7 +247,7 @@ describe('admin controls and data states', () => {
     );
 
     expect(html).toContain('No activity trend for this range.');
-    expect(html).not.toContain('<circle');
+    expect(html).not.toContain('admin-trend-dot');
   });
 
   it('sorts activity rows chronologically within the events source', () => {
@@ -328,7 +330,7 @@ describe('admin controls and data states', () => {
       timezone: 'Europe/Copenhagen',
     }));
     const resourceHtml = renderToStaticMarkup(createElement(ResourceCards, {
-      resources: { ...emptyResources, current: { ts: 1, cpuPercent: null, memoryUsedBytes: null, memoryLimitBytes: null, dataUsedBytes: null, databaseBytes: null, walBytes: null, shmBytes: null, otherDataBytes: 2048, lookupRows: null, activityRows: null, uptimeSeconds: null, localTs: null, imageSizeBytes: null }, sampler: { ...emptyResources.sampler, lastSuccessTs: Date.parse('2026-08-20T10:00:00Z') } },
+      resources: { ...emptyResources, current: { ts: 1, cpuPercent: null, memoryUsedBytes: null, memoryLimitBytes: null, dataUsedBytes: null, databaseBytes: null, walBytes: null, shmBytes: null, otherDataBytes: 2048, lookupRows: null, activityRows: null, uptimeSeconds: null, localTs: null, imageSizeBytes: null, networkIngressBps: null, networkEgressBps: null }, sampler: { ...emptyResources.sampler, lastSuccessTs: Date.parse('2026-08-20T10:00:00Z') } },
       timezone: 'Europe/Copenhagen',
     }));
 
@@ -340,13 +342,44 @@ describe('admin controls and data states', () => {
   it('renders resource API errors without hiding the error detail', () => {
     const html = renderToStaticMarkup(
       createElement(ResourceCards, {
-        resources: { ...emptyResources, current: { ts: 1, cpuPercent: null, memoryUsedBytes: null, memoryLimitBytes: null, dataUsedBytes: null, databaseBytes: null, walBytes: null, shmBytes: null, otherDataBytes: null, lookupRows: null, activityRows: null, uptimeSeconds: null, localTs: 'stale resource', imageSizeBytes: null } },
+        resources: { ...emptyResources, current: { ts: 1, cpuPercent: null, memoryUsedBytes: null, memoryLimitBytes: null, dataUsedBytes: null, databaseBytes: null, walBytes: null, shmBytes: null, otherDataBytes: null, lookupRows: null, activityRows: null, uptimeSeconds: null, localTs: 'stale resource', imageSizeBytes: null, networkIngressBps: null, networkEgressBps: null } },
         timezone: 'UTC',
         error: 'resource sampler unavailable',
       }),
     );
 
     expect(html).toContain('Resource data unavailable: resource sampler unavailable');
+  });
+
+  it('renders CPU, memory and data trend charts with axis value labels', () => {
+    const history = [
+      { ts: 1_700_000_000_000, cpuPercent: 1, memoryUsedBytes: 2048, memoryLimitBytes: null, dataUsedBytes: 4096, databaseBytes: null, walBytes: null, shmBytes: null, otherDataBytes: null, lookupRows: null, activityRows: null, uptimeSeconds: null, localTs: null, imageSizeBytes: null, networkIngressBps: 1024, networkEgressBps: 2048 },
+      { ts: 1_700_000_300_000, cpuPercent: 5, memoryUsedBytes: 4096, memoryLimitBytes: null, dataUsedBytes: 8192, databaseBytes: null, walBytes: null, shmBytes: null, otherDataBytes: null, lookupRows: null, activityRows: null, uptimeSeconds: null, localTs: null, imageSizeBytes: null, networkIngressBps: 2048, networkEgressBps: 4096 },
+    ];
+    const html = renderToStaticMarkup(
+      createElement(ResourceCharts, { history, timezone: 'UTC' }),
+    );
+
+    expect(html).toContain('aria-label="Memory history"');
+    expect(html).toContain('aria-label="/data history"');
+    expect(html).toContain('aria-label="CPU history"');
+    expect(html).toContain('aria-label="Network ingress history"');
+    expect(html).toContain('aria-label="Network egress history"');
+    expect(html).toContain('now 4.0 KB · peak 4.0 KB · min 2.0 KB');
+    expect(html).toContain('now 8.0 KB · peak 8.0 KB · min 4.0 KB');
+    expect(html).toContain('now 5% · peak 5% · min 1%');
+    expect(html).toContain('now 2.0 KB/s · peak 2.0 KB/s · min 1.0 KB/s');
+    expect(html).toContain('now 4.0 KB/s · peak 4.0 KB/s · min 2.0 KB/s');
+    expect(html).toContain('5%');
+    expect(html).toContain('4.0 KB');
+  });
+
+  it('shows the empty sample message on trend charts without history', () => {
+    const html = renderToStaticMarkup(
+      createElement(ResourceCharts, { history: [], timezone: 'UTC' }),
+    );
+
+    expect(html).toContain('No samples available.');
   });
 
   it('renders a login form without pre-populating token errors', () => {

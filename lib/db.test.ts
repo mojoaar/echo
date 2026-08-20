@@ -16,6 +16,7 @@ import {
   getRetentionDays,
   isDbReady,
   readDatabaseBreakdown,
+  insertResourceSample,
 } from './db';
 import { getDb } from './db';
 
@@ -271,5 +272,61 @@ describe('sqlite lookup log', () => {
     expect(breakdown?.pageCount).toBeGreaterThan(0);
     expect(breakdown?.fileBytes).toBe(breakdown!.pageSize * breakdown!.pageCount);
     expect(breakdown?.freelistBytes).toBe(breakdown!.freelistCount * breakdown!.pageSize);
+  });
+
+  it('migrates legacy resource_samples tables by adding network columns', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'echo-db-migrate-'));
+    const legacyPath = join(dir, 'legacy.db');
+    const legacy = new Database(legacyPath);
+    legacy.exec(`
+      CREATE TABLE resource_samples (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts INTEGER NOT NULL,
+        cpu_percent REAL,
+        memory_used_bytes INTEGER,
+        memory_limit_bytes INTEGER,
+        data_used_bytes INTEGER,
+        database_bytes INTEGER,
+        wal_bytes INTEGER,
+        shm_bytes INTEGER,
+        other_data_bytes INTEGER,
+        lookup_rows INTEGER,
+        activity_rows INTEGER,
+        uptime_seconds INTEGER,
+        local_ts TEXT,
+        image_size_bytes INTEGER
+      );
+    `);
+    legacy.close();
+
+    closeDb();
+    initDb(legacyPath);
+    try {
+      const columns = (getDb().prepare('PRAGMA table_info(resource_samples)').all() as Array<{ name: string }>).map((column) => column.name);
+      expect(columns).toEqual(expect.arrayContaining(['network_ingress_bps', 'network_egress_bps']));
+      insertResourceSample({
+        ts: 1,
+        cpuPercent: null,
+        memoryUsedBytes: null,
+        memoryLimitBytes: null,
+        dataUsedBytes: null,
+        databaseBytes: null,
+        walBytes: null,
+        shmBytes: null,
+        otherDataBytes: null,
+        lookupRows: null,
+        activityRows: null,
+        uptimeSeconds: null,
+        localTs: null,
+        imageSizeBytes: null,
+        networkIngressBps: 512,
+        networkEgressBps: 256,
+      });
+      const row = getDb().prepare('SELECT network_ingress_bps, network_egress_bps FROM resource_samples').get() as { network_ingress_bps: number; network_egress_bps: number };
+      expect(row).toEqual({ network_ingress_bps: 512, network_egress_bps: 256 });
+    } finally {
+      closeDb();
+      initDb(dbPath);
+    }
   });
 });

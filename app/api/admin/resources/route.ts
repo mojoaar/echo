@@ -1,7 +1,7 @@
 import { adminDateRange } from '@/lib/admin-date';
 import { getDb, readDatabaseBreakdown } from '@/lib/db';
 import { adminJson, requireAdmin } from '@/lib/admin-route';
-import { getResourceSamplerStatus } from '@/lib/resources';
+import { dataVolumeFreeBytes, getResourceSamplerStatus } from '@/lib/resources';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +26,8 @@ function resourceRow(row: Record<string, unknown>): Record<string, unknown> {
     uptimeSeconds: row.uptime_seconds,
     localTs: row.local_ts,
     imageSizeBytes: row.image_size_bytes,
+    networkIngressBps: row.network_ingress_bps,
+    networkEgressBps: row.network_egress_bps,
   };
 }
 
@@ -38,16 +40,17 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const db = getDb();
     const current = db.prepare(
-      'SELECT ts, cpu_percent, memory_used_bytes, memory_limit_bytes, data_used_bytes, database_bytes, wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts, image_size_bytes FROM resource_samples ORDER BY ts DESC LIMIT 1',
+      'SELECT ts, cpu_percent, memory_used_bytes, memory_limit_bytes, data_used_bytes, database_bytes, wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts, image_size_bytes, network_ingress_bps, network_egress_bps FROM resource_samples ORDER BY ts DESC LIMIT 1',
     ).get() as Record<string, unknown> | undefined;
     const rows = db.prepare(
-      'SELECT ts, cpu_percent, memory_used_bytes, memory_limit_bytes, data_used_bytes, database_bytes, wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts, image_size_bytes FROM resource_samples WHERE ts >= ? AND ts <= ? ORDER BY ts DESC LIMIT ?',
+      'SELECT ts, cpu_percent, memory_used_bytes, memory_limit_bytes, data_used_bytes, database_bytes, wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts, image_size_bytes, network_ingress_bps, network_egress_bps FROM resource_samples WHERE ts >= ? AND ts <= ? ORDER BY ts DESC LIMIT ?',
     ).all(range.from, range.to, 1_000) as Array<Record<string, unknown>>;
     return adminJson({
       current: current ? resourceRow(current) : null,
       sampler: getResourceSamplerStatus(),
       history: rows.map(resourceRow),
       storage: readDatabaseBreakdown(),
+      volumeFreeBytes: dataVolumeFreeBytes(),
     });
   } catch {
     console.error(JSON.stringify({ category: 'database_read', endpoint: '/api/admin/resources', status: 500, durationMs: Math.max(0, Date.now() - startedAt) }));

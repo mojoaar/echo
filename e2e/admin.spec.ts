@@ -53,6 +53,7 @@ async function stubAdminData(page: import('@playwright/test').Page, resources: u
   sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null },
   history: [],
   storage: null,
+  volumeFreeBytes: null,
 }) {
   await page.route('**/api/admin/activity**', async (route) => {
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(activityPayload()) });
@@ -101,7 +102,7 @@ test('refreshes the dashboard in place without a browser reload', async ({ page 
   });
   await page.route('**/api/admin/resources**', async (route) => {
     resourceRequests += 1;
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [], storage: null }) });
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [], storage: null, volumeFreeBytes: null }) });
   });
   await signIn(page);
   await expect.poll(async () => {
@@ -128,7 +129,7 @@ test('applies daily, weekly, monthly, and custom date ranges', async ({ page }) 
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(activityPayload()) });
   });
   await page.route('**/api/admin/resources**', async (route) => {
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [] }) });
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [], storage: null, volumeFreeBytes: null }) });
   });
 
   const from = page.getByLabel('From');
@@ -205,6 +206,7 @@ test('filters activity and renders the table, resource cards, and charts', async
         { name: 'idx_activity_events_ts', kind: 'index', bytes: 512, pages: 1, cells: 8 },
       ],
     },
+    volumeFreeBytes: null,
   };
   await page.route('**/api/admin/activity**', async (route) => {
     activityUrls.push(route.request().url());
@@ -309,6 +311,7 @@ test.describe('mobile admin', () => {
       },
       sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null },
       history: [{ ts: 1, memoryUsedBytes: 1, dataUsedBytes: 1 }, { ts: 2, memoryUsedBytes: 2, dataUsedBytes: 2 }],
+      volumeFreeBytes: null,
     });
     await page.getByRole('button', { name: 'Apply filters' }).click();
     await expect(page.getByRole('cell', { name: '203.0.113.10' })).toBeVisible();
@@ -381,7 +384,7 @@ test('clears stale activity rows when a later activity request fails', async ({ 
     await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'activity unavailable' }) });
   });
   await page.route('**/api/admin/resources**', async (route) => {
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [] }) });
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [], storage: null, volumeFreeBytes: null }) });
   });
 
   await page.getByRole('button', { name: 'Apply filters' }).click();
@@ -421,7 +424,7 @@ test('shows expired sessions, clears stale resources, and catches logout failure
   await page.route('**/api/admin/resources**', async (route) => {
     resourceAttempts += 1;
     if (resourceAttempts === 1) {
-      await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: { localTs: 'known resource' }, sampler: { enabled: true, running: true, lastSuccessTs: null, lastError: null }, history: [] }) });
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: { localTs: 'known resource' }, sampler: { enabled: true, running: true, lastSuccessTs: null, lastError: null }, history: [], volumeFreeBytes: null }) });
       return;
     }
     await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'resource sampler unavailable', code: 'internal_error' }) });
@@ -464,7 +467,7 @@ test('applies filters and pagination through same-origin admin requests', async 
     expect(url.pathname).toBe('/api/admin/activity');
   });
   await page.route('**/api/admin/resources**', async (route) => {
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [] }) });
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [], storage: null, volumeFreeBytes: null }) });
   });
   await page.getByLabel('Lookup type').selectOption('dns');
   await page.getByLabel('Channel').selectOption('api');
@@ -500,7 +503,7 @@ test('keeps the requested page when the resource request fails', async ({ page }
   await page.route('**/api/admin/resources**', async (route) => {
     resourceAttempts += 1;
     if (resourceAttempts === 1) {
-      await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [] }) });
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [], storage: null, volumeFreeBytes: null }) });
       return;
     }
     await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });

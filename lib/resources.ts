@@ -21,8 +21,16 @@ interface CpuSample {
   nowMs: number;
 }
 
+interface NetworkSample {
+  path: string;
+  rxBytes: number;
+  txBytes: number;
+  nowMs: number;
+}
+
 let samplerTimer: ReturnType<typeof setInterval> | null = null;
 let lastCpuSample: CpuSample | null = null;
+let lastNetworkSample: NetworkSample | null = null;
 let lastSuccessTs: number | null = null;
 let lastError: string | null = null;
 
@@ -112,6 +120,45 @@ function dataPath(): string {
   return process.env.RESOURCE_DATA_PATH ?? '/data';
 }
 
+function networkTotals(path: string): { rxBytes: number; txBytes: number } | null {
+  try {
+    const content = readFileSync(path, 'utf8');
+    let rxBytes = 0;
+    let txBytes = 0;
+    for (const line of content.split('\n')) {
+      const match = line.match(/^\s*([^:\s]+):\s*(.*)$/);
+      if (!match || match[1] === 'lo') continue;
+      const fields = match[2].trim().split(/\s+/);
+      const rx = Number.parseInt(fields[0] ?? '', 10);
+      const tx = Number.parseInt(fields[8] ?? '', 10);
+      if (Number.isSafeInteger(rx) && Number.isSafeInteger(tx)) {
+        rxBytes += rx;
+        txBytes += tx;
+      }
+    }
+    return { rxBytes, txBytes };
+  } catch {
+    return null;
+  }
+}
+
+function networkMeasurement(nowMs: number): Pick<ResourceSampleInput, 'networkIngressBps' | 'networkEgressBps'> {
+  const path = process.env.RESOURCE_NET_PATH ?? '/proc/net/dev';
+  const totals = networkTotals(path);
+  const current = totals ? { path, rxBytes: totals.rxBytes, txBytes: totals.txBytes, nowMs } : null;
+  const previous = lastNetworkSample;
+  if (current) lastNetworkSample = current;
+  if (!current || !previous || previous.path !== path || nowMs <= previous.nowMs || current.rxBytes < previous.rxBytes || current.txBytes < previous.txBytes) {
+    return { networkIngressBps: null, networkEgressBps: null };
+  }
+  const elapsedSeconds = (nowMs - previous.nowMs) / 1_000;
+  if (elapsedSeconds <= 0) return { networkIngressBps: null, networkEgressBps: null };
+  return {
+    networkIngressBps: Math.round((current.rxBytes - previous.rxBytes) / elapsedSeconds),
+    networkEgressBps: Math.round((current.txBytes - previous.txBytes) / elapsedSeconds),
+  };
+}
+
 function fileSize(path: string): number {
   try {
     const stat = statSync(path);
@@ -150,18 +197,25 @@ function dataMeasurement(): Pick<ResourceSampleInput, 'dataUsedBytes' | 'databas
   const databaseBytes = fileSize(databasePath);
   const walBytes = fileSize(`${databasePath}-wal`);
   const shmBytes = fileSize(`${databasePath}-shm`);
-  let dataUsedBytes: number | null = null;
-  try {
-    const stat = statfsSync(root);
-    dataUsedBytes = Math.max(0, (stat.blocks - stat.bavail) * stat.bsize);
-  } catch {
-    dataUsedBytes = directorySize(root);
-  }
   const componentPaths = [databasePath, `${databasePath}-wal`, `${databasePath}-shm`];
   const dataComponents = componentPaths.filter((path) => isRealPathInData(root, path));
   const dataComponentBytes = dataComponents.reduce((total, path) => total + fileSize(path), 0);
-  const otherDataBytes = Math.max(0, directorySize(root) - dataComponentBytes);
-  return { dataUsedBytes, databaseBytes, walBytes, shmBytes, otherDataBytes };
+  return {
+    dataUsedBytes: directorySize(root),
+    databaseBytes,
+    walBytes,
+    shmBytes,
+    otherDataBytes: Math.max(0, directorySize(root) - dataComponentBytes),
+  };
+}
+
+export function dataVolumeFreeBytes(): number | null {
+  try {
+    const stat = statfsSync(dataPath());
+    return Math.max(0, stat.bavail * stat.bsize);
+  } catch {
+    return null;
+  }
 }
 
 function localTimestamp(nowMs: number): string | null {
@@ -196,11 +250,13 @@ function readRowCount(table: 'lookups' | 'activity_events'): number {
 export function readResourceSample(nowMs = Date.now()): ResourceSampleInput {
   const memory = memoryMeasurement();
   const data = dataMeasurement();
+  const network = networkMeasurement(nowMs);
   return {
     ts: nowMs,
     cpuPercent: cpuMeasurement(nowMs),
     ...memory,
     ...data,
+    ...network,
     lookupRows: null,
     activityRows: readRowCount('activity_events'),
     uptimeSeconds: Math.floor(process.uptime()),
@@ -225,6 +281,7 @@ export function stopResourceSampler(): void {
   if (samplerTimer) clearInterval(samplerTimer);
   samplerTimer = null;
   lastCpuSample = null;
+  lastNetworkSample = null;
 }
 
 export function startResourceSampler(): (() => void) | null {

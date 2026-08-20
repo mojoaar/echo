@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The `/data` card shows the actual volume contents plus free space on the backing volume instead of the host filesystem usage
+- Admin resource trends gain Y and X axis value labels, a CPU chart, and network ingress/egress charts
+- Admin dashboard adds a network card with live ingress and egress rates in bytes per second
+
+### Fixed
+
+- Admin activity trend dots are no longer distorted on single-day ranges
+
 ## [1.7.0] - 2026-08-20
 
 ### Changed

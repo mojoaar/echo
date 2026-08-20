@@ -60,11 +60,21 @@ export default function ActivityTable({ result, timezone = 'UTC', page = 1, hasN
         {result.trend?.length ? (() => {
           const points = trendPoints(result);
           const line = points.map((point) => `${point.x},${point.y}`).join(' ');
+          const single = points.length === 1;
           return (
-            <svg viewBox="0 0 100 40" role="img" aria-label="Activity trend" preserveAspectRatio="none">
-              {points.length > 1 ? <polyline points={line} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /> : null}
-              {points.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r="2.5" fill="var(--accent)" />)}
-            </svg>
+            <div className="admin-trend-plot">
+              <svg viewBox="0 0 100 40" role="img" aria-label="Activity trend" preserveAspectRatio="none">
+                {points.length > 1 ? <polyline points={line} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /> : null}
+              </svg>
+              {points.map((point, index) => (
+                <span
+                  key={index}
+                  className="admin-trend-dot"
+                  style={{ left: `${single ? 50 : Math.min(96, Math.max(4, point.x))}%`, top: `${(point.y / 40) * 100}%` }}
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
           );
         })() : <p className="admin-empty">No activity trend for this range.</p>}
       </div>

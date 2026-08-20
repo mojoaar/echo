@@ -18,6 +18,8 @@ export interface ResourceSampleRecord {
   uptimeSeconds: number | null;
   localTs: string | null;
   imageSizeBytes: number | null;
+  networkIngressBps: number | null;
+  networkEgressBps: number | null;
 }
 
 let db: Database.Database | null = null;
@@ -52,8 +54,20 @@ function openDb(path: string): Database.Database {
   const instance = new Database(path);
   instance.pragma('journal_mode = WAL');
   instance.exec(schemaSql());
+  ensureResourceSampleColumns(instance);
   db = instance;
   return instance;
+}
+
+function ensureResourceSampleColumns(instance: Database.Database): void {
+  const columns = new Set((instance.prepare('PRAGMA table_info(resource_samples)').all() as Array<{ name: string }>).map((column) => column.name));
+  const additions: Array<[string, string]> = [
+    ['network_ingress_bps', 'network_ingress_bps REAL'],
+    ['network_egress_bps', 'network_egress_bps REAL'],
+  ];
+  for (const [name, definition] of additions) {
+    if (!columns.has(name)) instance.exec(`ALTER TABLE resource_samples ADD COLUMN ${definition}`);
+  }
 }
 
 export function initDb(path = process.env.DB_PATH ?? 'echo.db'): Database.Database {
@@ -139,8 +153,9 @@ export function insertResourceSample(sample: ResourceSampleRecord): void {
     .prepare(
       `INSERT INTO resource_samples
         (ts, cpu_percent, memory_used_bytes, memory_limit_bytes, data_used_bytes, database_bytes,
-         wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts, image_size_bytes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         wal_bytes, shm_bytes, other_data_bytes, lookup_rows, activity_rows, uptime_seconds, local_ts,
+         image_size_bytes, network_ingress_bps, network_egress_bps)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       sample.ts,
@@ -157,6 +172,8 @@ export function insertResourceSample(sample: ResourceSampleRecord): void {
       sample.uptimeSeconds,
       sample.localTs,
       sample.imageSizeBytes,
+      sample.networkIngressBps,
+      sample.networkEgressBps,
     );
 }
 

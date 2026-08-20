@@ -19,6 +19,8 @@ export type AdminResourceRow = {
   uptimeSeconds: number | null;
   localTs: string | null;
   imageSizeBytes: number | null;
+  networkIngressBps: number | null;
+  networkEgressBps: number | null;
 };
 
 export type AdminResources = {
@@ -26,6 +28,7 @@ export type AdminResources = {
   sampler: ResourceSamplerStatus;
   history: AdminResourceRow[];
   storage: StorageBreakdown | null;
+  volumeFreeBytes: number | null;
 };
 
 export type AdminActivityRow = ActivityRow;
