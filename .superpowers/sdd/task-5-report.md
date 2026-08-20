@@ -139,3 +139,12 @@ Resolved the configured-timezone boundary failure for dates whose local midnight
 - Full tests: `npm test` (`34` files, `256` tests passed).
 - Lint/type check: `npm run lint` (`tsc --noEmit` exited `0`).
 - Diff validation: `git diff --check` exited `0`.
+
+## Remaining Review Finding Follow-up
+
+Added direct regression coverage for an ambiguous local midnight in `America/Havana` on `2020-11-01`, where local midnight occurs at both `04:00Z` and `05:00Z`; the date range selects the first representable instant.
+
+- Focused tests: `npx vitest run lib/admin-date.test.ts app/api/admin/activity/route.test.ts app/api/admin/resources/route.test.ts` (`3` files, `13` tests passed).
+- Lint/type check: `npm run lint` (`tsc --noEmit` exited `0`).
+- Diff validation: `git diff --check` exited `0`.
+- No source comment was added; the regression test documents the bounded offset-search behavior through its timezone, date, and expected UTC boundaries.
