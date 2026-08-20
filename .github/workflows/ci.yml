@@ -109,7 +109,7 @@ jobs:
           ignore-unfixed: true
           vuln-type: os,library
           severity: HIGH,CRITICAL
-      - uses: anchore/sbom-action@v0.20.5
+      - uses: anchore/sbom-action@v0.24.0
         with:
           image: echo:ci
           format: cyclonedx-json
