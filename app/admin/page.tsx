@@ -4,7 +4,7 @@ import { unstable_noStore as noStore } from 'next/cache';
 import { notFound } from 'next/navigation';
 import { ADMIN_SESSION_COOKIE, isAdminEnabled, verifyAdminSession } from '@/lib/admin-auth';
 import { adminDateRange, containerDate } from '@/lib/admin-date';
-import { queryActivity } from '@/lib/activity';
+import { queryActivity, type ActivityQueryResult } from '@/lib/activity';
 import { getDb, getRetentionDays } from '@/lib/db';
 import { getResourceSamplerStatus } from '@/lib/resources';
 import AdminLogin from '@/components/admin/AdminLogin';
@@ -62,20 +62,29 @@ export default async function Page() {
   if (!verifyAdminSession(session).valid) return <AdminLogin />;
 
   const today = containerDate();
-  const activityRange = adminDateRange(new URL(`https://echo.test/admin?from=${today}&to=${today}`), getRetentionDays());
-  const activity = activityRange
-    ? queryActivity({ from: activityRange.from, to: activityRange.to, limit: 50, offset: 0 })
-    : { totalSuccessfulEvents: 0, uniqueIps: 0, countries: [], types: [], outcomes: [], events: [], legacy: [] };
+  const emptyActivity: ActivityQueryResult = { totalSuccessfulEvents: 0, uniqueIps: 0, countries: [], types: [], outcomes: [], events: [], legacy: [] };
+  let activity = emptyActivity;
+  let activityError: string | null = null;
+  try {
+    const activityRange = adminDateRange(new URL(`https://echo.test/admin?from=${today}&to=${today}`), getRetentionDays());
+    if (activityRange) {
+      activity = queryActivity({ from: activityRange.from, to: activityRange.to, limit: 50, offset: 0 });
+    }
+  } catch {
+    activityError = 'Unable to load admin activity.';
+  }
   let resources: AdminResources;
+  let resourceError: string | null = null;
   try {
     resources = initialResources();
   } catch {
     resources = { current: null, sampler: { enabled: true, running: false, lastSuccessTs: null, lastError: 'sample_failed' }, history: [] };
+    resourceError = 'Unable to load resource data.';
   }
 
   return (
     <div className="admin-shell">
-      <AdminControls today={today} timezone={process.env.TZ || 'UTC'} initialActivity={activity} initialResources={resources} />
+      <AdminControls today={today} timezone={process.env.TZ || 'UTC'} initialActivity={activity} initialResources={resources} initialActivityError={activityError} initialResourceError={resourceError} />
     </div>
   );
 }

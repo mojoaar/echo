@@ -717,6 +717,13 @@ footer a:hover {
   font: inherit;
 }
 
+.admin-shell button,
+.admin-shell input,
+.admin-shell select {
+  min-width: 44px;
+  min-height: 44px;
+}
+
 .admin-content {
   width: min(1260px, 100%);
   margin: 0 auto;

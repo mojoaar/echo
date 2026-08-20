@@ -17,7 +17,9 @@ function breakdown(value: string, count: number): string {
 }
 
 export default function ActivityTable({ result, page = 1, hasNext = false, onPrevious, onNext }: ActivityTableProps) {
-  const rows = [...result.events, ...result.legacy];
+  const rows = [...result.events, ...result.legacy].sort((left, right) =>
+    right.ts - left.ts || (right.id ?? -1) - (left.id ?? -1) || left.source.localeCompare(right.source),
+  );
   return (
     <section className="admin-panel" aria-labelledby="activity-heading">
       <div className="admin-panel-head">

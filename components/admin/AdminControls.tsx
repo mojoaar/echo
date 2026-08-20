@@ -13,7 +13,24 @@ type AdminControlsProps = {
   timezone: string;
   initialActivity: AdminActivityResult;
   initialResources: AdminResources;
+  initialActivityError?: string | null;
+  initialResourceError?: string | null;
 };
+
+const emptyResources: AdminResources = {
+  current: null,
+  sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null },
+  history: [],
+};
+
+async function apiErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = await response.json() as { error?: unknown };
+    return typeof body.error === 'string' && body.error.trim() ? body.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 export function sameOriginAdminPath(path: string): string | null {
   return path.startsWith('/api/admin/') ? path : null;
@@ -31,13 +48,15 @@ export function dateRangeForPreset(preset: Preset, today: string, customFrom?: s
   return { from: shift(today, -days), to: today };
 }
 
-export default function AdminControls({ today, timezone, initialActivity, initialResources }: AdminControlsProps) {
+export default function AdminControls({ today, timezone, initialActivity, initialResources, initialActivityError = null, initialResourceError = null }: AdminControlsProps) {
   const [preset, setPreset] = useState<Preset>('daily');
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [activity, setActivity] = useState(initialActivity);
   const [resources, setResources] = useState(initialResources);
   const [error, setError] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState(initialActivityError);
+  const [resourceError, setResourceError] = useState(initialResourceError);
   const [pending, startTransition] = useTransition();
   const [page, setPage] = useState(1);
   const [type, setType] = useState('');
@@ -62,19 +81,30 @@ export default function AdminControls({ today, timezone, initialActivity, initia
     if (ip) params.set('ip', ip);
     startTransition(async () => {
       setError(null);
+      setActivityError(null);
+      setResourceError(null);
       try {
         const activityResponse = await fetch(sameOriginAdminPath(`/api/admin/activity?${params}`) as string, { credentials: 'same-origin', cache: 'no-store' });
         if (activityResponse.status === 404) throw new Error('expired');
-        if (!activityResponse.ok) throw new Error('activity');
+        if (!activityResponse.ok) throw new Error(await apiErrorMessage(activityResponse, 'Unable to load admin activity.'));
         const nextActivity = await activityResponse.json() as AdminActivityResult;
         const resourceResponse = await fetch(`/api/admin/resources?from=${range.from}&to=${range.to}`, { credentials: 'same-origin', cache: 'no-store' });
-        if (resourceResponse.status === 404) throw new Error('expired');
-        const nextResources = resourceResponse.ok ? await resourceResponse.json() as AdminResources : resources;
+        if (!resourceResponse.ok) {
+          setResources(emptyResources);
+          if (resourceResponse.status === 404) throw new Error('expired');
+          setResourceError(await apiErrorMessage(resourceResponse, 'Unable to load resource data.'));
+          setActivity(nextActivity);
+          setPage(nextPage);
+          return;
+        }
+        const nextResources = await resourceResponse.json() as AdminResources;
         setActivity(nextActivity);
         setResources(nextResources);
         setPage(nextPage);
       } catch (loadError) {
-        setError(loadError instanceof Error && loadError.message === 'expired' ? 'Session expired. Log in again.' : 'Unable to load admin data.');
+        setError(loadError instanceof Error && loadError.message === 'expired'
+          ? 'Session expired. Log in again.'
+          : loadError instanceof Error ? loadError.message : 'Unable to load admin data.');
       }
     });
   }
@@ -89,9 +119,13 @@ export default function AdminControls({ today, timezone, initialActivity, initia
 
   async function logout() {
     setError(null);
-    const response = await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' });
-    if (response.ok) window.location.reload();
-    else setError(response.status === 404 ? 'Session expired. Log in again.' : 'Unable to log out.');
+    try {
+      const response = await fetch('/api/admin/logout', { method: 'POST', credentials: 'same-origin' });
+      if (response.ok) window.location.reload();
+      else setError(response.status === 404 ? 'Session expired. Log in again.' : 'Unable to log out.');
+    } catch {
+      setError('Unable to log out.');
+    }
   }
 
   return (
@@ -119,10 +153,11 @@ export default function AdminControls({ today, timezone, initialActivity, initia
           <label>IP<input value={ip} placeholder="203.0.113.10" onChange={(event) => setIp(event.target.value)} /></label>
         </div>
         <button className="btn primary" type="button" disabled={pending} onClick={() => load(preset)}>{pending ? 'Loading...' : 'Apply filters'}</button>
+        {activityError ? <p className="error" role="alert">{activityError}</p> : null}
         {error ? <p className="error" role="alert">{error}</p> : null}
       </section>
       <ActivityTable result={activity} page={page} hasNext={activity.events.length === 50} onPrevious={() => load(preset, from, to, page - 1)} onNext={() => load(preset, from, to, page + 1)} />
-      <ResourceCards resources={resources} timezone={timezone} />
+      <ResourceCards resources={resources} timezone={timezone} error={resourceError} />
       <ResourceCharts history={resources.history} />
     </main>
   );

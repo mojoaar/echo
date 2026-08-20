@@ -19,7 +19,7 @@ export default function AdminLogin() {
         credentials: 'same-origin',
       });
       if (!response.ok) {
-        setError('Invalid admin token.');
+        setError(response.status === 404 ? 'Invalid admin token.' : 'Unable to sign in right now.');
         return;
       }
       window.location.reload();

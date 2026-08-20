@@ -3,18 +3,23 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
 import type { ReactNode } from 'react';
 
-const { cookies, noStore, notFound, verifyAdminSession } = vi.hoisted(() => ({
+const { cookies, noStore, notFound, queryActivity, verifyAdminSession } = vi.hoisted(() => ({
   cookies: vi.fn(),
   noStore: vi.fn(),
   notFound: vi.fn(() => {
     throw new Error('NEXT_HTTP_ERROR_FALLBACK;404');
   }),
+  queryActivity: vi.fn(),
   verifyAdminSession: vi.fn(() => ({ valid: false, expiresAt: 0 })),
 }));
 
 vi.mock('next/headers', () => ({ cookies }));
 vi.mock('next/cache', () => ({ unstable_noStore: noStore }));
 vi.mock('next/navigation', () => ({ notFound }));
+vi.mock('@/lib/activity', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/activity')>()),
+  queryActivity,
+}));
 vi.mock('@/lib/admin-auth', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/admin-auth')>()),
   verifyAdminSession,
@@ -24,6 +29,7 @@ import Page, { metadata } from '@/app/admin/page';
 import AdminControls, { dateRangeForPreset, sameOriginAdminPath } from '@/components/admin/AdminControls';
 import ActivityTable from '@/components/admin/ActivityTable';
 import ResourceCards from '@/components/admin/ResourceCards';
+import AdminLogin from '@/components/admin/AdminLogin';
 
 const emptyActivity = {
   totalSuccessfulEvents: 0,
@@ -48,6 +54,8 @@ afterEach(() => {
   notFound.mockClear();
   verifyAdminSession.mockReset();
   verifyAdminSession.mockReturnValue({ valid: false, expiresAt: 0 });
+  queryActivity.mockReset();
+  queryActivity.mockReturnValue(emptyActivity);
 });
 
 function pageCookies(value?: string) {
@@ -95,6 +103,21 @@ describe('admin page', () => {
     expect(html).toContain('unique IPs');
     expect(html).toContain('Daily / 24h');
     expect(html).not.toContain('do-not-render-this');
+  });
+
+  it('renders an admin error state when initial activity loading fails', async () => {
+    process.env.ADMIN_TOKEN = 'do-not-render-this';
+    pageCookies('valid-session');
+    verifyAdminSession.mockReturnValue({ valid: true, expiresAt: Date.now() + 1_000 });
+    queryActivity.mockImplementation(() => {
+      throw new Error('database unavailable');
+    });
+
+    const page = await Page();
+    const html = renderToStaticMarkup(page);
+
+    expect(html).toContain('Unable to load admin activity.');
+    expect(html).toContain('role="alert"');
   });
 
   it('marks the page as non-indexable', () => {
@@ -173,6 +196,44 @@ describe('admin controls and data states', () => {
     expect(html).toContain('Bot labels are heuristic');
   });
 
+  it('sorts activity rows chronologically across activity and legacy sources', () => {
+    const html = renderToStaticMarkup(
+      createElement(ActivityTable, {
+        result: {
+          ...emptyActivity,
+          events: [{
+            id: 1,
+            source: 'activity',
+            ip: '203.0.113.10',
+            iso: 'US',
+            ts: Date.parse('2026-08-20T09:00:00Z'),
+            lookupType: 'dns',
+            channel: 'api',
+            actor: 'browser',
+            target: 'new.example.com',
+            outcome: 'success',
+            partial: false,
+          }],
+          legacy: [{
+            id: null,
+            source: 'legacy',
+            ip: '203.0.113.11',
+            iso: null,
+            ts: Date.parse('2026-08-20T10:00:00Z'),
+            lookupType: 'legacy',
+            channel: 'unknown',
+            actor: 'unknown',
+            target: null,
+            outcome: 'success',
+            partial: false,
+          }],
+        },
+      }),
+    );
+
+    expect(html.indexOf('203.0.113.11')).toBeLessThan(html.indexOf('203.0.113.10'));
+  });
+
   it('includes controls required for date, filters, pagination, and logout', () => {
     const html = renderToStaticMarkup(
       createElement(AdminControls, {
@@ -190,5 +251,37 @@ describe('admin controls and data states', () => {
     expect(html).toContain('Lookup type');
     expect(html).toContain('Previous page');
     expect(html).toContain('Log out');
+  });
+
+  it('shows sampler status and the last sampler error', () => {
+    const html = renderToStaticMarkup(
+      createElement(ResourceCards, {
+        resources: { ...emptyResources, sampler: { ...emptyResources.sampler, enabled: true, lastError: 'sample_failed' } },
+        timezone: 'UTC',
+      }),
+    );
+
+    expect(html).toContain('Sampler status: stopped');
+    expect(html).toContain('Last sampler error: sample_failed');
+  });
+
+  it('renders resource API errors without hiding the error detail', () => {
+    const html = renderToStaticMarkup(
+      createElement(ResourceCards, {
+        resources: { ...emptyResources, current: { ts: 1, cpuPercent: null, memoryUsedBytes: null, memoryLimitBytes: null, dataUsedBytes: null, databaseBytes: null, walBytes: null, shmBytes: null, otherDataBytes: null, lookupRows: null, activityRows: null, uptimeSeconds: null, localTs: 'stale resource', imageSizeBytes: null } },
+        timezone: 'UTC',
+        error: 'resource sampler unavailable',
+      }),
+    );
+
+    expect(html).toContain('Resource data unavailable: resource sampler unavailable');
+  });
+
+  it('renders a login form without pre-populating token errors', () => {
+    const html = renderToStaticMarkup(createElement(AdminLogin));
+
+    expect(html).toContain('name="token"');
+    expect(html).not.toContain('Invalid admin token.');
+    expect(html).not.toContain('Unable to sign in right now.');
   });
 });

@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const unconfiguredPort = process.env.ECHO_PLAYWRIGHT_PORT ?? '3000';
+const unconfiguredDistDir = process.env.ECHO_PLAYWRIGHT_DIST_DIR ?? '.next/playwright-unconfigured';
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
@@ -9,7 +12,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:3000',
+    baseURL: `http://127.0.0.1:${unconfiguredPort}`,
     trace: 'on-first-retry',
     serviceWorkers: 'block',
     bypassCSP: false,
@@ -18,7 +21,7 @@ export default defineConfig({
     {
       name: 'desktop-chromium',
       use: { ...devices['Desktop Chrome'] },
-      testMatch: /home\.spec\.ts|api\.spec\.ts/,
+      testMatch: /home\.spec\.ts|api\.spec\.ts|admin\.spec\.ts/,
     },
     {
       name: 'mobile-safari',
@@ -36,12 +39,13 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'npm run dev -- --hostname 127.0.0.1 --port 3000',
-      url: 'http://127.0.0.1:3000/api/health',
+      command: `npm run dev -- --hostname 127.0.0.1 --port ${unconfiguredPort}`,
+      url: `http://127.0.0.1:${unconfiguredPort}/api/health`,
       env: {
+        ADMIN_TOKEN: 'test-admin-token',
         CONNECTIVITY_IPV4_URL: '',
         CONNECTIVITY_IPV6_URL: '',
-        NEXT_DIST_DIR: '.next/playwright-unconfigured',
+        NEXT_DIST_DIR: unconfiguredDistDir,
       },
       reuseExistingServer: false,
       timeout: 120_000,
