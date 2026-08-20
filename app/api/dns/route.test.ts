@@ -1,6 +1,13 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET, OPTIONS } from './route';
 import { resetRateLimiter } from '@/lib/ratelimit';
+
+const { recordActivityEvent } = vi.hoisted(() => ({ recordActivityEvent: vi.fn() }));
+
+vi.mock('@/lib/activity', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/activity')>()),
+  recordActivityEvent,
+}));
 
 vi.mock('@/lib/dns', () => ({
   isPublicHostname: (name: string) => /^[a-z0-9.-]+$/i.test(name) && name.includes('.'),
@@ -20,9 +27,15 @@ vi.mock('@/lib/dns', () => ({
   })),
 }));
 
+beforeEach(() => {
+  recordActivityEvent.mockClear();
+});
+
 describe('GET /api/dns', () => {
   it('returns dns records for a hostname', async () => {
-    const res = await GET(new Request('http://localhost/api/dns?name=johansen.foo'));
+    const res = await GET(new Request('http://localhost/api/dns?name=johansen.foo', {
+      headers: { 'x-real-ip': '8.8.8.8', 'user-agent': 'Googlebot/2.1' },
+    }));
     expect(res.status).toBe(200);
     expect(res.headers.get('access-control-allow-origin')).toBe('*');
     const body = await res.json();
@@ -36,12 +49,23 @@ describe('GET /api/dns', () => {
     expect(body).not.toHaveProperty('resolver');
     expect(body).not.toHaveProperty('error');
     expect(res.headers.get('x-ratelimit-limit')).toMatch(/^\d+$/);
+    expect(recordActivityEvent).toHaveBeenCalledWith(expect.objectContaining({
+      ip: '8.8.8.8',
+      iso: null,
+      lookupType: 'dns',
+      channel: 'api',
+      actor: 'bot',
+      target: 'johansen.foo',
+      outcome: 'success',
+      partial: false,
+    }));
   });
 
   it('rejects an invalid hostname with 400', async () => {
     const res = await GET(new Request('http://localhost/api/dns?name=not a name'));
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: 'invalid hostname', code: 'invalid_input' });
+    expect(recordActivityEvent).not.toHaveBeenCalled();
   });
 
   it('returns stable timeout errors with rate headers', async () => {
@@ -51,6 +75,7 @@ describe('GET /api/dns', () => {
     expect(res.status).toBe(504);
     expect(await res.json()).toEqual({ error: 'dns lookup timed out', code: 'upstream_timeout' });
     expect(res.headers.get('x-ratelimit-remaining')).toMatch(/^\d+$/);
+    expect(recordActivityEvent).not.toHaveBeenCalled();
   });
 
   it('returns stable unavailable errors without resolver details', async () => {
@@ -59,6 +84,7 @@ describe('GET /api/dns', () => {
     const res = await GET(new Request('http://localhost/api/dns?name=johansen.foo'));
     expect(res.status).toBe(502);
     expect(await res.json()).toEqual({ error: 'dns resolver unavailable', code: 'upstream_unavailable' });
+    expect(recordActivityEvent).not.toHaveBeenCalled();
   });
 
   it('preserves non-timeout partial results', async () => {
@@ -81,6 +107,12 @@ describe('GET /api/dns', () => {
 
     expect(res.status).toBe(200);
     expect((await res.json()).partial).toBe(true);
+    expect(recordActivityEvent).toHaveBeenCalledWith(expect.objectContaining({
+      lookupType: 'dns',
+      target: 'johansen.foo',
+      outcome: 'partial',
+      partial: true,
+    }));
   });
 
   it('answers OPTIONS with CORS headers', async () => {
@@ -100,6 +132,7 @@ describe('GET /api/dns rate limiting', () => {
 
   afterEach(() => {
     resetRateLimiter();
+    recordActivityEvent.mockClear();
   });
 
   afterAll(() => {
@@ -121,5 +154,6 @@ describe('GET /api/dns rate limiting', () => {
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get('retry-after')).toMatch(/^\d+$/);
     expect(await blocked.json()).toEqual({ error: 'rate limit exceeded', code: 'rate_limited' });
+    expect(recordActivityEvent).toHaveBeenCalledTimes(1);
   });
 });

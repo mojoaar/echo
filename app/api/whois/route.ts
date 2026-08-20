@@ -5,6 +5,7 @@ import { createReaders } from '@/lib/geo';
 import type { AsnRecord } from '@/lib/types';
 import { getRateLimiter } from '@/lib/ratelimit';
 import { apiError, withRateHeaders } from '@/lib/api';
+import { classifyActivityActor, isActivityPathExcluded, recordActivityEvent, resolveActivityChannel } from '@/lib/activity';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,5 +49,20 @@ export async function GET(request: Request) {
   const asn = typeof asnNumber === 'number' && Number.isSafeInteger(asnNumber) && asnNumber >= 0
     ? await fetchRdapAsn(asnNumber)
     : null;
+  if (ipData && !isActivityPathExcluded(request)) {
+    try {
+      recordActivityEvent({
+        ip: extractVisitorIp(request.headers) ?? 'unknown',
+        iso: ipData.country,
+        ts: Date.now(),
+        lookupType: 'whois',
+        channel: resolveActivityChannel(request),
+        actor: classifyActivityActor(request.headers.get('user-agent')),
+        target: ip,
+        outcome: asn ? 'success' : 'partial',
+        partial: asn === null,
+      });
+    } catch {}
+  }
   return Response.json({ ip: ipData, asn }, { headers: withRateHeaders(corsHeaders, rate) });
 }

@@ -1,6 +1,13 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET, OPTIONS } from './route';
 import { resetRateLimiter } from '@/lib/ratelimit';
+
+const { recordActivityEvent } = vi.hoisted(() => ({ recordActivityEvent: vi.fn() }));
+
+vi.mock('@/lib/activity', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/activity')>()),
+  recordActivityEvent,
+}));
 
 vi.mock('@/lib/geo', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/geo')>();
@@ -24,6 +31,10 @@ const arinFixture = {
     },
   ],
 };
+
+beforeEach(() => {
+  recordActivityEvent.mockClear();
+});
 
 function stubFetch() {
   vi.stubGlobal(
@@ -49,17 +60,29 @@ describe('GET /api/whois', () => {
     expect(body.ip.handle).toBe('NET-8-8-8-0-1');
     expect(body.ip.organization).toBe('Google LLC');
     expect(body.asn).toBeNull();
+    expect(recordActivityEvent).toHaveBeenCalledWith(expect.objectContaining({
+      ip: 'unknown',
+      iso: 'US',
+      lookupType: 'whois',
+      channel: 'api',
+      actor: 'unknown',
+      target: '8.8.8.8',
+      outcome: 'partial',
+      partial: true,
+    }));
   });
 
   it('rejects an invalid ip with 400', async () => {
     const res = await GET(new Request('http://localhost/api/whois?ip=not-an-ip'));
     expect(res.status).toBe(400);
+    expect(recordActivityEvent).not.toHaveBeenCalled();
   });
 
   it('rejects repeated ?ip= values with stable invalid input', async () => {
     const res = await GET(new Request('http://localhost/api/whois?ip=8.8.8.8&ip=1.1.1.1'));
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: 'invalid ip address', code: 'invalid_input' });
+    expect(recordActivityEvent).not.toHaveBeenCalled();
   });
 
   it('answers OPTIONS with CORS headers', async () => {
@@ -80,6 +103,7 @@ describe('GET /api/whois rate limiting', () => {
 
   afterEach(() => {
     resetRateLimiter();
+    recordActivityEvent.mockClear();
   });
 
   afterAll(() => {
@@ -102,5 +126,6 @@ describe('GET /api/whois rate limiting', () => {
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get('retry-after')).toMatch(/^\d+$/);
     expect(await blocked.json()).toEqual({ error: 'rate limit exceeded', code: 'rate_limited' });
+    expect(recordActivityEvent).toHaveBeenCalledTimes(1);
   });
 });

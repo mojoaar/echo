@@ -2,6 +2,7 @@ import { resolveRecords, isPublicHostname } from '@/lib/dns';
 import { getRateLimiter } from '@/lib/ratelimit';
 import { extractVisitorIp } from '@/lib/ip';
 import { apiError, withRateHeaders } from '@/lib/api';
+import { classifyActivityActor, isActivityPathExcluded, recordActivityEvent, resolveActivityChannel } from '@/lib/activity';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,19 @@ export async function GET(request: Request) {
   }
   try {
     const result = await resolveRecords(name);
+    if (!isActivityPathExcluded(request)) try {
+      recordActivityEvent({
+        ip: extractVisitorIp(request.headers) ?? 'unknown',
+        iso: null,
+        ts: Date.now(),
+        lookupType: 'dns',
+        channel: resolveActivityChannel(request),
+        actor: classifyActivityActor(request.headers.get('user-agent')),
+        target: name.toLowerCase(),
+        outcome: result.partial ? 'partial' : 'success',
+        partial: result.partial,
+      });
+    } catch {}
     return Response.json({ name: name.toLowerCase(), ...result }, {
       headers: withRateHeaders(corsHeaders, rate),
     });

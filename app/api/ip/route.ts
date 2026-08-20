@@ -2,6 +2,7 @@ import { extractVisitorIp, normalizeIp } from '@/lib/ip';
 import { isValidIp } from '@/lib/validate';
 import { getRateLimiter } from '@/lib/ratelimit';
 import { apiError, withRateHeaders } from '@/lib/api';
+import { classifyActivityActor, isActivityPathExcluded, recordActivityEvent, resolveActivityChannel } from '@/lib/activity';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,19 @@ export async function GET(request: Request) {
   if (!ip) {
     return apiError(400, 'could not determine ip', 'invalid_input', baseHeaders);
   }
+  if (!isActivityPathExcluded(request)) try {
+    recordActivityEvent({
+      ip: extractVisitorIp(request.headers) ?? 'unknown',
+      iso: null,
+      ts: Date.now(),
+      lookupType: 'ip',
+      channel: resolveActivityChannel(request),
+      actor: classifyActivityActor(request.headers.get('user-agent')),
+      target: ip,
+      outcome: 'success',
+      partial: false,
+    });
+  } catch {}
   return new Response(`${ip}\n`, {
     headers: withRateHeaders(baseHeaders, rate),
   });

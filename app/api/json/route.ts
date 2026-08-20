@@ -4,6 +4,7 @@ import { lookupInfo } from '@/lib/geo';
 import { insertLookup } from '@/lib/db';
 import { getRateLimiter } from '@/lib/ratelimit';
 import { apiError, withRateHeaders } from '@/lib/api';
+import { classifyActivityActor, isActivityPathExcluded, recordActivityEvent, resolveActivityChannel } from '@/lib/activity';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,5 +54,18 @@ export async function GET(request: Request) {
       durationMs: Math.max(0, Date.now() - startedAt),
     }));
   }
+  if (!isActivityPathExcluded(request)) try {
+    recordActivityEvent({
+      ip: extractVisitorIp(request.headers) ?? 'unknown',
+      iso: info.country,
+      ts: Date.now(),
+      lookupType: 'geo',
+      channel: resolveActivityChannel(request),
+      actor: classifyActivityActor(request.headers.get('user-agent')),
+      target: info.ip,
+      outcome: info.country ? 'success' : 'partial',
+      partial: !info.country,
+    });
+  } catch {}
   return Response.json(info, { headers: withRateHeaders(corsHeaders, rate) });
 }

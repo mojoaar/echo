@@ -17,6 +17,7 @@ import TypeOnText from '@/components/ui/TypeOnText';
 import ConnectivitySection from '@/components/ui/ConnectivitySection';
 import { getVersion } from '@/lib/version';
 import type { Metadata } from 'next';
+import { classifyActivityActor, isActivityPathExcluded, recordActivityEvent, resolveActivityChannel } from '@/lib/activity';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,7 +95,8 @@ export default async function Page({
 }) {
   const params = await searchParams;
   const rawTarget = queryIp(params.ip);
-  const visitorIp = extractVisitorIp(await headers());
+  const requestHeaders = await headers();
+  const visitorIp = extractVisitorIp(requestHeaders);
   const baseUrl = process.env.APP_URL || defaultSiteUrl;
 
   let target: string | null = null;
@@ -122,6 +124,19 @@ export default async function Page({
     } catch {
       logOperationalEvent({ category: 'database_write', endpoint: 'page', status: 'error', durationMs: Date.now() - startedAt });
     }
+    if (!isActivityPathExcluded('/')) try {
+      recordActivityEvent({
+        ip: visitorIp ?? 'unknown',
+        iso: info.country,
+        ts: Date.now(),
+        lookupType: 'page',
+        channel: resolveActivityChannel('/'),
+        actor: classifyActivityActor(requestHeaders.get('user-agent')),
+        target: info.ip,
+        outcome: info.country ? 'success' : 'partial',
+        partial: !info.country,
+      });
+    } catch {}
   }
 
   const stats = { total: 0, last24h: 0, topCountries: [] as { iso: string; count: number }[] };

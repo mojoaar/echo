@@ -7,6 +7,13 @@ import { initDb, closeDb } from '@/lib/db';
 import { resetRateLimiter } from '@/lib/ratelimit';
 import * as db from '@/lib/db';
 
+const { recordActivityEvent } = vi.hoisted(() => ({ recordActivityEvent: vi.fn() }));
+
+vi.mock('@/lib/activity', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/activity')>()),
+  recordActivityEvent,
+}));
+
 describe('GET /api/json', () => {
   beforeAll(() => {
     const dir = mkdtempSync(join(tmpdir(), 'echo-json-'));
@@ -17,9 +24,13 @@ describe('GET /api/json', () => {
     closeDb();
   });
 
+  afterEach(() => {
+    recordActivityEvent.mockClear();
+  });
+
   it('returns the full payload for the visitor ip', async () => {
     const req = new Request('http://localhost/api/json', {
-      headers: { 'x-forwarded-for': '8.8.8.8' },
+      headers: { 'x-forwarded-for': '8.8.8.8', 'user-agent': 'Mozilla/5.0' },
     });
     const res = await GET(req);
     expect(res.status).toBe(200);
@@ -28,6 +39,16 @@ describe('GET /api/json', () => {
     const body = await res.json();
     expect(body.ip).toBe('8.8.8.8');
     expect(typeof body.isPrivate).toBe('boolean');
+    expect(recordActivityEvent).toHaveBeenCalledWith(expect.objectContaining({
+      ip: '8.8.8.8',
+      iso: body.country,
+      lookupType: 'geo',
+      channel: 'api',
+      actor: 'browser',
+      target: '8.8.8.8',
+      outcome: 'success',
+      partial: false,
+    }));
   });
 
   it('supports ?ip= arbitrary lookups', async () => {
@@ -36,17 +57,26 @@ describe('GET /api/json', () => {
     const body = await res.json();
     expect(body.ip).toBe('192.168.1.1');
     expect(body.isPrivate).toBe(true);
+    expect(recordActivityEvent).toHaveBeenCalledWith(expect.objectContaining({
+      lookupType: 'geo',
+      target: '192.168.1.1',
+      ip: 'unknown',
+      outcome: 'partial',
+      partial: true,
+    }));
   });
 
   it('rejects invalid ip values with 400', async () => {
     const res = await GET(new Request('http://localhost/api/json?ip=not-an-ip'));
     expect(res.status).toBe(400);
+    expect(recordActivityEvent).not.toHaveBeenCalled();
   });
 
   it('rejects repeated ?ip= values with stable invalid input', async () => {
     const res = await GET(new Request('http://localhost/api/json?ip=8.8.8.8&ip=1.1.1.1'));
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: 'invalid ip address', code: 'invalid_input' });
+    expect(recordActivityEvent).not.toHaveBeenCalled();
   });
 
   it('logs redacted structured events when inserting the lookup fails', async () => {
@@ -60,6 +90,7 @@ describe('GET /api/json', () => {
       expect(error).toHaveBeenCalledWith(expect.stringContaining('"category":"database_write"'));
       expect(error.mock.calls[0]?.[0]).not.toContain('8.8.8.8');
       expect(error.mock.calls[0]?.[0]).not.toContain('do-not-log');
+      expect(recordActivityEvent).toHaveBeenCalledTimes(1);
     } finally {
       insert.mockRestore();
       error.mockRestore();
@@ -86,6 +117,7 @@ describe('GET /api/json rate limiting', () => {
 
   afterEach(() => {
     resetRateLimiter();
+    recordActivityEvent.mockClear();
   });
 
   afterAll(() => {
@@ -114,6 +146,7 @@ describe('GET /api/json rate limiting', () => {
     const body = await blocked.json();
     expect(body.error).toBe('rate limit exceeded');
     expect(body.code).toBe('rate_limited');
+    expect(recordActivityEvent).toHaveBeenCalledTimes(2);
   });
 
   it('keeps separate rate windows per visitor ip', async () => {
