@@ -8,3 +8,5 @@ data/*.mmdb
 data/*.mmdb.tmp
 .env
 .opencode/
+test-results/
+playwright-report/
