@@ -7,6 +7,10 @@ import * as db from '@/lib/db';
 import { resetRateLimiter } from '@/lib/ratelimit';
 import { GET } from './route';
 
+const { recordActivityEvent } = vi.hoisted(() => ({ recordActivityEvent: vi.fn() }));
+
+vi.mock('@/lib/activity', () => ({ recordActivityEvent }));
+
 describe('GET /api/stats', () => {
   beforeAll(() => {
     const dir = mkdtempSync(join(tmpdir(), 'echo-stats-'));
@@ -80,6 +84,7 @@ describe('GET /api/stats', () => {
   });
 
   it('returns aggregate stats for a valid query token', async () => {
+    recordActivityEvent.mockClear();
     process.env.STATS_TOKEN = 'secret-value';
     const res = await GET(new Request('http://localhost/api/stats?token=secret-value'));
     expect(res.status).toBe(200);
@@ -91,9 +96,11 @@ describe('GET /api/stats', () => {
     expect(Array.isArray(body.topIps)).toBe(true);
     expect(Array.isArray(body.daily)).toBe(true);
     expect(body.topCountries.some((c: { iso: string }) => c.iso === 'US')).toBe(true);
+    expect(recordActivityEvent).not.toHaveBeenCalled();
   });
 
   it('accepts a bearer token header', async () => {
+    recordActivityEvent.mockClear();
     process.env.STATS_TOKEN = 'secret-value';
     const res = await GET(
       new Request('http://localhost/api/stats', {
@@ -101,6 +108,7 @@ describe('GET /api/stats', () => {
       })
     );
     expect(res.status).toBe(200);
+    expect(recordActivityEvent).not.toHaveBeenCalled();
   });
 
   it('returns a stable no-store internal error when authenticated database reads fail', async () => {

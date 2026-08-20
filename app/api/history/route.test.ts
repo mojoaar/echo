@@ -8,6 +8,9 @@ import { resetRateLimiter } from '@/lib/ratelimit';
 import * as db from '@/lib/db';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const { recordActivityEvent } = vi.hoisted(() => ({ recordActivityEvent: vi.fn() }));
+
+vi.mock('@/lib/activity', () => ({ recordActivityEvent }));
 
 describe('GET /api/history', () => {
   beforeAll(() => {
@@ -21,6 +24,7 @@ describe('GET /api/history', () => {
   });
 
   it('returns aggregate lookup stats', async () => {
+    recordActivityEvent.mockClear();
     insertLookup('8.8.8.8', 'US');
     insertLookup('1.1.1.1', 'AU');
     await sleep(5);
@@ -37,6 +41,7 @@ describe('GET /api/history', () => {
     expect(Array.isArray(body.topCountries)).toBe(true);
     const us = body.topCountries.find((c: { iso: string; count: number }) => c.iso === 'US');
     expect(us.count).toBe(2);
+    expect(recordActivityEvent).not.toHaveBeenCalled();
   });
 
   it('rate limits when exceeding the cap', async () => {

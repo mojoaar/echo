@@ -48,6 +48,20 @@ describe('activity events', () => {
     expect(isActivityPathExcluded('/api/ip')).toBe(false);
   });
 
+  it('excludes successful health, admin, static, history, and stats paths', () => {
+    for (const path of [
+      '/api/health',
+      '/admin',
+      '/admin/settings',
+      '/_next/static/chunk.js',
+      '/favicon.ico',
+      '/api/history',
+      '/api/stats',
+    ]) {
+      expect(isActivityPathExcluded(new Request(`http://localhost${path}`))).toBe(true);
+    }
+  });
+
   it('records target and partial outcome fields', () => {
     recordActivityEvent({
       ip: '203.0.113.10',

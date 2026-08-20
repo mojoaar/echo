@@ -7,6 +7,10 @@ import * as db from '@/lib/db';
 import { getVersion } from '@/lib/version';
 import { GET } from './route';
 
+const { recordActivityEvent } = vi.hoisted(() => ({ recordActivityEvent: vi.fn() }));
+
+vi.mock('@/lib/activity', () => ({ recordActivityEvent }));
+
 describe('GET /api/health', () => {
   beforeAll(() => {
     const dir = mkdtempSync(join(tmpdir(), 'echo-health-route-'));
@@ -22,11 +26,13 @@ describe('GET /api/health', () => {
   });
 
   it('returns minimal public liveness without touching lookup writes', async () => {
+    recordActivityEvent.mockClear();
     const insert = vi.spyOn(db, 'insertLookup');
     const response = await GET(new Request('http://localhost/api/health'));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: 'ok' });
     expect(insert).not.toHaveBeenCalled();
+    expect(recordActivityEvent).not.toHaveBeenCalled();
     insert.mockRestore();
   });
 
@@ -53,6 +59,7 @@ describe('GET /api/health', () => {
   });
 
   it('returns the restricted readiness contract for a valid bearer token', async () => {
+    recordActivityEvent.mockClear();
     const insert = vi.spyOn(db, 'insertLookup');
     const response = await GET(new Request('http://localhost/api/health?readiness=1', {
       headers: { authorization: 'Bearer health-secret' },
@@ -67,6 +74,7 @@ describe('GET /api/health', () => {
       retentionDays: 7,
     });
     expect(insert).not.toHaveBeenCalled();
+    expect(recordActivityEvent).not.toHaveBeenCalled();
     insert.mockRestore();
   });
 });
