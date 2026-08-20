@@ -129,3 +129,13 @@ git diff --check exited 0
 ```
 
 Review-fix commit: `c51d97b`.
+
+## Remaining Review Finding
+
+Resolved the configured-timezone boundary failure for dates whose local midnight is skipped. `lib/admin-date.ts` now derives candidate UTC boundaries from nearby timezone offsets and selects the first representable instant on or after the requested calendar date, preserving calendar-day range semantics for skipped or ambiguous midnights.
+
+- Added `lib/admin-date.test.ts` regression coverage for `America/Sao_Paulo` on `2018-11-04`, where local midnight was skipped.
+- Focused regression: `npx vitest run lib/admin-date.test.ts app/api/admin/activity/route.test.ts app/api/admin/resources/route.test.ts` (`3` files, `12` tests passed).
+- Full tests: `npm test` (`34` files, `256` tests passed).
+- Lint/type check: `npm run lint` (`tsc --noEmit` exited `0`).
+- Diff validation: `git diff --check` exited `0`.

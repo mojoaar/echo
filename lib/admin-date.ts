@@ -74,13 +74,18 @@ function dateDifference(from: string, to: string): number {
 function localMidnight(value: string): number | null {
   const [year, month, day] = value.split('-').map(Number);
   const target = Date.UTC(year, month - 1, day);
-  let timestamp = target;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  const offsets = new Set<number>();
+  for (const delta of [-2, -1, 0, 1, 2]) {
+    const timestamp = target + delta * DAY_MS;
     const parts = dateParts(timestamp);
-    timestamp += target - Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+    offsets.add(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second) - timestamp);
   }
-  const parts = dateParts(timestamp);
-  return dateValue(parts) === value && parts.hour === 0 && parts.minute === 0 && parts.second === 0 ? timestamp : null;
+
+  const candidates = [...offsets]
+    .map((offset) => target - offset)
+    .filter((timestamp) => dateValue(dateParts(timestamp)) >= value)
+    .sort((left, right) => left - right);
+  return candidates[0] ?? null;
 }
 
 export function containerDate(timestamp = Date.now()): string {
