@@ -134,3 +134,55 @@ npm run lint
 ```
 
 Result: `tsc --noEmit` exited 0 with no errors.
+
+## Remaining Review Fix
+
+- Changed resource component containment to compare `realpathSync` results, so database, WAL, and SHM symlinks under `/data` are not treated as `/data` components when their targets are physically outside the data root.
+- Added a symlink regression test covering the database, WAL, and SHM paths and verified that their sizes remain in `otherDataBytes` when the links point outside `/data`.
+
+## Remaining Review Fix Verification
+
+Regression command before the implementation change:
+
+```text
+npx vitest run lib/resources.test.ts
+```
+
+Result: `1 failed`, with the symlink regression receiving `otherDataBytes` of `0` instead of `5`.
+
+Focused command:
+
+```text
+npx vitest run lib/resources.test.ts instrumentation.test.ts
+```
+
+Result: `Test Files 2 passed (2)` and `Tests 15 passed (15)`.
+
+Full tests:
+
+```text
+npm test
+```
+
+Result: `Test Files 28 passed (28)` and `Tests 232 passed (232)`.
+
+Lint/type check:
+
+```text
+npm run lint
+```
+
+Result: `tsc --noEmit` exited 0 with no errors.
+
+Diff validation:
+
+```text
+git diff --check
+```
+
+Result: exited 0 with no whitespace errors.
+
+## Remaining Review Concerns
+
+- Vitest emits the existing non-fatal Vite warning about ESM syntax in `vitest.config.ts` being loaded as CommonJS.
+- `realpathSync` containment excludes missing or broken component paths from subtraction; their reported component sizes remain zero through the existing `fileSize` fallback.

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -141,6 +141,28 @@ describe('resource measurements', () => {
     expect(sample.walBytes).toBe(3);
     expect(sample.shmBytes).toBe(3);
     expect(sample.otherDataBytes).toBe(5 + 10 + 10);
+  });
+
+  it('does not subtract database components symlinked outside data from other data', () => {
+    const databasePath = join(dataPath, 'linked.sqlite');
+    const outsideDatabasePath = join(root, 'outside.sqlite');
+    const outsideWalPath = join(root, 'outside.sqlite-wal');
+    const outsideShmPath = join(root, 'outside.sqlite-shm');
+    process.env.RESOURCE_DATABASE_PATH = databasePath;
+    writeFileSync(outsideDatabasePath, 'database');
+    writeFileSync(outsideWalPath, 'wal');
+    writeFileSync(outsideShmPath, 'shm');
+    symlinkSync(outsideDatabasePath, databasePath);
+    symlinkSync(outsideWalPath, `${databasePath}-wal`);
+    symlinkSync(outsideShmPath, `${databasePath}-shm`);
+    writeFileSync(join(dataPath, 'local.bin'), 'local');
+
+    const sample = readResourceSample(1_700_000_000_000);
+
+    expect(sample.databaseBytes).toBe(8);
+    expect(sample.walBytes).toBe(3);
+    expect(sample.shmBytes).toBe(3);
+    expect(sample.otherDataBytes).toBe(5);
   });
 
   it('reports uptime and an optional image size', () => {

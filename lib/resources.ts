@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync, statfsSync, statSync } from 'node:fs';
-import { isAbsolute, join, relative, resolve } from 'node:path';
+import { readdirSync, readFileSync, realpathSync, statfsSync, statSync } from 'node:fs';
+import { isAbsolute, join, relative } from 'node:path';
 import { getDb, insertResourceSample, type ResourceSampleRecord } from './db';
 
 const FIVE_MINUTES_MS = 300_000;
@@ -134,6 +134,15 @@ function directorySize(path: string): number {
   }
 }
 
+function isRealPathInData(root: string, path: string): boolean {
+  try {
+    const relativePath = relative(realpathSync(root), realpathSync(path));
+    return relativePath !== '' && !relativePath.startsWith('..') && !isAbsolute(relativePath);
+  } catch {
+    return false;
+  }
+}
+
 function dataMeasurement(): Pick<ResourceSampleInput, 'dataUsedBytes' | 'databaseBytes' | 'walBytes' | 'shmBytes' | 'otherDataBytes'> {
   const root = dataPath();
   const databasePath = process.env.RESOURCE_DATABASE_PATH ?? process.env.DB_PATH ?? join(root, 'echo.db');
@@ -147,12 +156,8 @@ function dataMeasurement(): Pick<ResourceSampleInput, 'dataUsedBytes' | 'databas
   } catch {
     dataUsedBytes = directorySize(root);
   }
-  const rootPath = resolve(root);
   const componentPaths = [databasePath, `${databasePath}-wal`, `${databasePath}-shm`];
-  const dataComponents = componentPaths.filter((path) => {
-    const relativePath = relative(rootPath, resolve(path));
-    return relativePath !== '' && !relativePath.startsWith('..') && !isAbsolute(relativePath);
-  });
+  const dataComponents = componentPaths.filter((path) => isRealPathInData(root, path));
   const dataComponentBytes = dataComponents.reduce((total, path) => total + fileSize(path), 0);
   const otherDataBytes = Math.max(0, directorySize(root) - dataComponentBytes);
   return { dataUsedBytes, databaseBytes, walBytes, shmBytes, otherDataBytes };
