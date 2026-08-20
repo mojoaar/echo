@@ -123,17 +123,7 @@ export default function DnsSection() {
       {result && (
         <div className="dns-meta" aria-live="polite">
           <span>{result.cache === 'hit' ? 'Cached result' : 'Fresh result'}</span>
-          <span>
-            {new Date(result.resolvedAt).toLocaleString(undefined, {
-              year: 'numeric',
-              month: 'numeric',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hourCycle: 'h23',
-            })}
-          </span>
+          <span>{formatLocalIso(result.resolvedAt)}</span>
           <span>{result.durationMs} ms</span>
         </div>
       )}
@@ -144,6 +134,15 @@ export default function DnsSection() {
       )}
     </section>
   );
+}
+
+function formatLocalIso(value: string): string {
+  const date = new Date(value);
+  const pad = (part: number) => String(part).padStart(2, '0');
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absoluteOffset = Math.abs(offsetMinutes);
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}${sign}${pad(Math.floor(absoluteOffset / 60))}:${pad(absoluteOffset % 60)}`;
 }
 
 function isDnsLookupMetadata(value: unknown): value is DnsLookupResult & { name: string } {

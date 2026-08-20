@@ -216,9 +216,7 @@ test('shows deterministic DNS and WHOIS success states', async ({ page }) => {
   await page.getByRole('button', { name: 'Resolve' }).click();
   await expect(page.getByText('93.184.216.34')).toBeVisible();
   await expect(page.getByText('Fresh result')).toBeVisible();
-  await expect(page.locator('.dns-meta')).toContainText('20:15:03');
-  await expect(page.locator('.dns-meta')).not.toContainText('AM');
-  await expect(page.locator('.dns-meta')).not.toContainText('PM');
+  await expect(page.locator('.dns-meta')).toContainText(/2026-08-19T20:15:03[+-]\d{2}:\d{2}/);
 
   await page.getByRole('button', { name: 'Load WHOIS data' }).click();
   await expect(page.locator('.whois-value').filter({ hasText: 'Google LLC' }).first()).toBeVisible();

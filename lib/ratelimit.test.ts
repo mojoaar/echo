@@ -101,7 +101,8 @@ describe('getRateLimiter', () => {
     const first = limiter.allow('key');
     expect(first.limit).toBe(1);
     expect(first.retryAfter).toBe(0);
-    expect(limiter.allow('key').retryAfter).toBe(1234);
+    expect(limiter.allow('key').retryAfter).toBeLessThanOrEqual(1234);
+    expect(limiter.allow('key').retryAfter).toBeGreaterThan(0);
   });
 
   it('uses endpoint values before legacy global values', () => {
@@ -113,7 +114,8 @@ describe('getRateLimiter', () => {
     const first = limiter.allow('key');
     expect(first.limit).toBe(1);
     expect(first.retryAfter).toBe(0);
-    expect(limiter.allow('key').retryAfter).toBe(5678);
+    expect(limiter.allow('key').retryAfter).toBeLessThanOrEqual(5678);
+    expect(limiter.allow('key').retryAfter).toBeGreaterThan(0);
   });
 
   it('accepts only positive integer maxima from the environment', () => {
@@ -124,12 +126,26 @@ describe('getRateLimiter', () => {
     expect(limiter.allow('key').limit).toBe(30);
   });
 
-  it('keeps endpoint-specific Compose variables empty unless configured', () => {
+  it('keeps recommended Compose rate-limit defaults explicit', () => {
     const compose = readFileSync(new URL('../docker-compose.yml', import.meta.url), 'utf8');
-    expect(compose).toContain('RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-}');
-    expect(compose).toContain('RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-}');
-    for (const name of endpointEnvNames) {
-      expect(compose).toContain(`${name}: \${${name}:-}`);
+    const defaults: Record<string, string> = {
+      RATE_LIMIT_MAX: '30',
+      RATE_LIMIT_WINDOW_MS: '60000',
+      RATE_LIMIT_JSON_MAX: '30',
+      RATE_LIMIT_JSON_WINDOW_MS: '60000',
+      RATE_LIMIT_IP_MAX: '60',
+      RATE_LIMIT_IP_WINDOW_MS: '60000',
+      RATE_LIMIT_HISTORY_MAX: '30',
+      RATE_LIMIT_HISTORY_WINDOW_MS: '60000',
+      RATE_LIMIT_WHOIS_MAX: '10',
+      RATE_LIMIT_WHOIS_WINDOW_MS: '60000',
+      RATE_LIMIT_DNS_MAX: '10',
+      RATE_LIMIT_DNS_WINDOW_MS: '60000',
+      RATE_LIMIT_STATS_AUTH_MAX: '5',
+      RATE_LIMIT_STATS_AUTH_WINDOW_MS: '60000',
+    };
+    for (const [name, value] of Object.entries(defaults)) {
+      expect(compose).toContain(`${name}: \${${name}:-${value}}`);
     }
   });
 

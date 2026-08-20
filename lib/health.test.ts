@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { closeDb, initDb } from './db';
 import { getHealth } from './health';
+import { getVersion } from './version';
 
 describe('health payloads', () => {
   beforeAll(() => {
@@ -27,7 +28,7 @@ describe('health payloads', () => {
       status: 'ok',
       database: { ready: true },
       mmdb: { ready: true },
-      version: '1.3.0',
+      version: getVersion(),
       uptimeSeconds: expect.any(Number),
       retentionDays: 7,
     });

@@ -38,6 +38,8 @@ COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/data ./data
 COPY --from=build --chown=node:node /app/schema.sql ./schema.sql
 
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
 RUN mkdir -p /data && chown -R node:node /data
 
 USER node
