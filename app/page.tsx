@@ -2,14 +2,14 @@ import { headers } from 'next/headers';
 import { extractVisitorIp, normalizeIp } from '@/lib/ip';
 import { isValidIp } from '@/lib/validate';
 import { lookupInfo } from '@/lib/geo';
-import { countLookups, countSince, topCountryCodes } from '@/lib/db';
+import { countLookups, countSince, countCountries, topCountryCodes } from '@/lib/db';
 import type { IpInfo } from '@/lib/types';
 import CopyButton from '@/components/ui/CopyButton';
 import CopyLinkButton from '@/components/ui/CopyLinkButton';
 import RefreshButton from '@/components/ui/RefreshButton';
 import LookupForm from '@/components/ui/LookupForm';
 import { MapTrigger } from '@/components/ui/MapModal';
-import FeedStats from '@/components/ui/FeedStats';
+import FeedStats, { type FeedRanges } from '@/components/ui/FeedStats';
 import WhoisSection from '@/components/ui/WhoisSection';
 import DnsSection from '@/components/ui/DnsSection';
 import TypeOnText from '@/components/ui/TypeOnText';
@@ -132,11 +132,33 @@ export default async function Page({
     } catch {}
   }
 
-  const stats = { total: 0, last24h: 0, topCountries: [] as { iso: string; count: number }[] };
+  const now = Date.now();
+  const DAY_MS = 86_400_000;
+  const stats = { total: 0, ranges: {} as FeedRanges };
   try {
     stats.total = countLookups();
-    stats.last24h = countSince(Date.now() - 86_400_000);
-    stats.topCountries = topCountryCodes(12);
+    stats.ranges = {
+      '24h': {
+        count: countSince(now - DAY_MS),
+        countries: countCountries(now - DAY_MS),
+        topCountries: topCountryCodes(12, now - DAY_MS),
+      },
+      '7d': {
+        count: countSince(now - 7 * DAY_MS),
+        countries: countCountries(now - 7 * DAY_MS),
+        topCountries: topCountryCodes(12, now - 7 * DAY_MS),
+      },
+      '30d': {
+        count: countSince(now - 30 * DAY_MS),
+        countries: countCountries(now - 30 * DAY_MS),
+        topCountries: topCountryCodes(12, now - 30 * DAY_MS),
+      },
+      all: {
+        count: stats.total,
+        countries: countCountries(),
+        topCountries: topCountryCodes(12),
+      },
+    };
   } catch {
     logOperationalEvent({ category: 'database_read', endpoint: 'page', status: 'error', durationMs: 0 });
   }
@@ -250,7 +272,7 @@ export default async function Page({
           />
         ) : null}
 
-        <FeedStats total={stats.total} last24h={stats.last24h} topCountries={stats.topCountries} />
+        <FeedStats total={stats.total} ranges={stats.ranges} />
       </main>
 
       <SiteFooter />

@@ -121,12 +121,23 @@ export function countSince(tsMs: number): number {
   return row.n;
 }
 
-export function topCountryCodes(limit = 10): CountryCount[] {
+export function topCountryCodes(limit = 10, sinceMs?: number): CountryCount[] {
+  const where = sinceMs === undefined ? 'WHERE iso IS NOT NULL' : 'WHERE iso IS NOT NULL AND ts >= ?';
+  const params = sinceMs === undefined ? [limit] : [sinceMs, limit];
   return getDb()
     .prepare(
-      'SELECT iso, COUNT(*) AS count FROM activity_events WHERE iso IS NOT NULL GROUP BY iso ORDER BY count DESC, iso ASC LIMIT ?'
+      `SELECT iso, COUNT(*) AS count FROM activity_events ${where} GROUP BY iso ORDER BY count DESC, iso ASC LIMIT ?`
     )
-    .all(limit) as CountryCount[];
+    .all(...params) as CountryCount[];
+}
+
+export function countCountries(sinceMs?: number): number {
+  const where = sinceMs === undefined ? 'WHERE iso IS NOT NULL' : 'WHERE iso IS NOT NULL AND ts >= ?';
+  const params = sinceMs === undefined ? [] : [sinceMs];
+  const row = getDb()
+    .prepare(`SELECT COUNT(DISTINCT iso) AS n FROM activity_events ${where}`)
+    .get(...params) as { n: number };
+  return row.n;
 }
 
 export function countLookups(): number {

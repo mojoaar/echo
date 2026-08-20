@@ -275,3 +275,25 @@ test('renders the map modal with the CSS marker and restores focus', async ({ pa
   await expect(dialog).toBeHidden();
   await expect(trigger).toBeFocused();
 });
+
+test('switches the lookup statistics range selector', async ({ page }) => {
+  await page.setExtraHTTPHeaders({ 'x-real-ip': '192.168.1.10' });
+  await page.goto('/');
+  const stats = page.getByRole('region', { name: 'Lookup statistics' });
+  await expect(stats).toBeVisible();
+
+  await expect(stats.getByRole('button', { name: '24h' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(stats).toContainText('in the last 24h');
+
+  await stats.getByRole('button', { name: '7 days' }).click();
+  await expect(stats.getByRole('button', { name: '7 days' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(stats).toContainText('in the last 7 days');
+
+  await stats.getByRole('button', { name: '30 days' }).click();
+  await expect(stats.getByRole('button', { name: '30 days' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(stats).toContainText('in the last 30 days');
+
+  await stats.getByRole('button', { name: 'All' }).click();
+  await expect(stats.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(stats).toContainText('total ·');
+});

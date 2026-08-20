@@ -309,6 +309,18 @@ a.brand:hover .brand-name {
   margin-top: 40px;
 }
 
+.feed-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.feed-range .btn {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+}
+
 .section-title {
   font-size: 1rem;
   margin-bottom: 12px;
