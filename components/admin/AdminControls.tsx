@@ -83,24 +83,23 @@ export default function AdminControls({ today, timezone, initialActivity, initia
       setError(null);
       setActivityError(null);
       setResourceError(null);
+      setActivity({ totalSuccessfulEvents: 0, uniqueIps: 0, countries: [], types: [], outcomes: [], events: [], legacy: [] });
       try {
         const activityResponse = await fetch(sameOriginAdminPath(`/api/admin/activity?${params}`) as string, { credentials: 'same-origin', cache: 'no-store' });
         if (activityResponse.status === 404) throw new Error('expired');
         if (!activityResponse.ok) throw new Error(await apiErrorMessage(activityResponse, 'Unable to load admin activity.'));
         const nextActivity = await activityResponse.json() as AdminActivityResult;
+        setActivity(nextActivity);
+        setPage(nextPage);
+        setResources(emptyResources);
         const resourceResponse = await fetch(`/api/admin/resources?from=${range.from}&to=${range.to}`, { credentials: 'same-origin', cache: 'no-store' });
         if (!resourceResponse.ok) {
-          setResources(emptyResources);
           if (resourceResponse.status === 404) throw new Error('expired');
           setResourceError(await apiErrorMessage(resourceResponse, 'Unable to load resource data.'));
-          setActivity(nextActivity);
-          setPage(nextPage);
           return;
         }
         const nextResources = await resourceResponse.json() as AdminResources;
-        setActivity(nextActivity);
         setResources(nextResources);
-        setPage(nextPage);
       } catch (loadError) {
         setError(loadError instanceof Error && loadError.message === 'expired'
           ? 'Session expired. Log in again.'

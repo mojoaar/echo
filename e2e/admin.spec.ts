@@ -24,6 +24,51 @@ test('shows loading and honest activity API errors', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText('database unavailable');
 });
 
+test('clears stale activity rows when a later activity request fails', async ({ page }) => {
+  await signIn(page);
+  let activityAttempts = 0;
+  await page.route('**/api/admin/activity**', async (route) => {
+    activityAttempts += 1;
+    if (activityAttempts === 1) {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          totalSuccessfulEvents: 1,
+          uniqueIps: 1,
+          countries: [],
+          types: [],
+          outcomes: [],
+          events: [{
+            id: 1,
+            source: 'activity',
+            ip: '203.0.113.99',
+            iso: 'US',
+            ts: Date.parse('2026-08-20T10:00:00Z'),
+            lookupType: 'dns',
+            channel: 'api',
+            actor: 'browser',
+            target: 'example.com',
+            outcome: 'success',
+            partial: false,
+          }],
+          legacy: [],
+        }),
+      });
+      return;
+    }
+    await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'activity unavailable' }) });
+  });
+  await page.route('**/api/admin/resources**', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [] }) });
+  });
+
+  await page.getByRole('button', { name: 'Apply filters' }).click();
+  await expect(page.getByText('203.0.113.99')).toBeVisible();
+  await page.getByRole('button', { name: 'Apply filters' }).click();
+  await expect(page.getByRole('alert')).toContainText('activity unavailable');
+  await expect(page.getByText('203.0.113.99')).not.toBeVisible();
+});
+
 test('distinguishes invalid tokens from login server errors', async ({ page }) => {
   await page.goto('/admin');
   await page.route('**/api/admin/login', async (route) => {
@@ -107,6 +152,40 @@ test('applies filters and pagination through same-origin admin requests', async 
   await expect.poll(() => activityUrls.at(-1)).toContain('offset=50');
   expect(activityUrls.at(-1)).toContain('type=dns');
   expect(activityUrls.at(-1)).toContain('channel=api');
+});
+
+test('keeps the requested page when the resource request fails', async ({ page }) => {
+  await signIn(page);
+  await page.route('**/api/admin/activity**', async (route) => {
+    const events = Array.from({ length: 50 }, (_, index) => ({
+      id: index + 1,
+      source: 'activity',
+      ip: `203.0.113.${index + 1}`,
+      iso: 'US',
+      ts: Date.parse('2026-08-20T10:00:00Z') - index,
+      lookupType: 'dns',
+      channel: 'api',
+      actor: 'browser',
+      target: 'example.com',
+      outcome: 'success',
+      partial: false,
+    }));
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ totalSuccessfulEvents: 50, uniqueIps: 50, countries: [], types: [], outcomes: [], events, legacy: [] }) });
+  });
+  let resourceAttempts = 0;
+  await page.route('**/api/admin/resources**', async (route) => {
+    resourceAttempts += 1;
+    if (resourceAttempts === 1) {
+      await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ current: null, sampler: { enabled: false, running: false, lastSuccessTs: null, lastError: null }, history: [] }) });
+      return;
+    }
+    await route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+  });
+
+  await page.getByRole('button', { name: 'Apply filters' }).click();
+  await page.getByRole('button', { name: 'Next page' }).click();
+  await expect(page.getByText('Page 2')).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('Session expired. Log in again.');
 });
 
 test('keeps admin controls at least 44px on mobile', async ({ page }) => {

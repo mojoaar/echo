@@ -118,3 +118,21 @@ The requested commit message is:
 ```text
 feat: add admin dashboard UI
 ```
+
+## Remaining Review Findings
+
+- Activity state is cleared before each activity request, so a failed request cannot leave stale successful rows visible.
+- Activity and pagination state are committed as soon as the activity response succeeds, before resource loading can fail. Resource failures therefore preserve the requested page and activity result while clearing the resource snapshot.
+- Added Playwright regressions for stale activity clearing and pagination coherence when the resource request fails.
+
+## Follow-up Verification
+
+- `npx vitest run app/admin/page.test.ts`: `Test Files 1 passed`, `Tests 14 passed`.
+- `npm test`: `Test Files 35 passed`, `Tests 271 passed`.
+- `npm run lint`: `tsc --noEmit` exited 0.
+- `git diff --check`: exited 0.
+- Playwright regression execution remains blocked by the existing Next.js `better-sqlite3` bundling failure: `Can't resolve (<dynamic> | 'null')`. The existing Next process was not stopped.
+
+## Follow-up Concerns
+
+- The two new browser regressions are present but could not execute in this environment because the Next.js development server fails during native `better-sqlite3` module compilation before serving the test page.
