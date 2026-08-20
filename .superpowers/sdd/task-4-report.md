@@ -99,3 +99,38 @@ Commit SHA: `406296a`
 - CPU percentage depends on cgroup CPU accounting being exposed by the container; unavailable or malformed cgroup data produces a null CPU value rather than a host-derived metric.
 - `ECHO_IMAGE_SIZE_BYTES` is intentionally configuration-only because querying the Docker host would violate the container-only design.
 - Sampler failures are retained as a redacted status category and do not interrupt application startup.
+
+## Reviewer Fixes
+
+- Made sampler eligibility enforce `NODE_ENV !== 'test'` at direct startup, not only through instrumentation.
+- Added an authorization check on every scheduled tick so removing `ADMIN_TOKEN` stops the sampler before another sample is saved.
+- Reset the CPU baseline whenever sampling stops, ensuring the first sample after restart reports unavailable CPU.
+- Restricted database, WAL, and SHM subtraction to files physically inside `/data`; configured database paths outside `/data` no longer reduce unrelated data usage, and non-default sidecar paths are used exactly.
+- Added regression tests for direct test-mode startup, token removal, CPU baseline reset, nested/non-default database paths, outside-`/data` paths, and unrelated sidecar names.
+- Simplified `ResourceSampleInput` to a type alias and retained comment-free source.
+
+## Reviewer Fix Verification
+
+Focused command:
+
+```text
+npx vitest run lib/resources.test.ts instrumentation.test.ts
+```
+
+Result: `Test Files 2 passed (2)` and `Tests 14 passed (14)`.
+
+Full tests:
+
+```text
+npm test
+```
+
+Result: `Test Files 28 passed (28)` and `Tests 231 passed (231)`.
+
+Lint/type check:
+
+```text
+npm run lint
+```
+
+Result: `tsc --noEmit` exited 0 with no errors.

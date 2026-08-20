@@ -18,6 +18,7 @@ let root: string;
 let dataPath: string;
 let cgroupPath: string;
 let dbPath: string;
+let samplerCleanup: (() => void) | null = null;
 
 function setFile(path: string, value: string): void {
   mkdirSync(join(path, '..'), { recursive: true });
@@ -29,6 +30,7 @@ function configurePaths(): void {
   process.env.RESOURCE_DATA_PATH = dataPath;
   process.env.RESOURCE_CGROUP_PATH = cgroupPath;
   process.env.TZ = 'UTC';
+  vi.stubEnv('NODE_ENV', '');
   delete process.env.ADMIN_TOKEN;
   delete process.env.ECHO_IMAGE_SIZE_BYTES;
   delete process.env.RESOURCE_DATABASE_PATH;
@@ -50,7 +52,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  samplerCleanup?.();
+  samplerCleanup = null;
   vi.useRealTimers();
+  vi.unstubAllEnvs();
   closeDb();
   delete process.env.DB_PATH;
   delete process.env.RESOURCE_DATA_PATH;
@@ -94,8 +99,9 @@ describe('resource measurements', () => {
   });
 
   it('breaks down data files and SQLite rows', () => {
-    const databasePath = join(dataPath, 'echo.db');
+    const databasePath = join(dataPath, 'state', 'app.sqlite');
     process.env.RESOURCE_DATABASE_PATH = databasePath;
+    mkdirSync(join(dataPath, 'state'), { recursive: true });
     writeFileSync(databasePath, 'database');
     const databaseBytes = statSync(databasePath).size;
     getDb().prepare('INSERT INTO lookups (ip, iso, ts) VALUES (?, ?, ?)').run('203.0.113.1', 'US', 1);
@@ -104,8 +110,8 @@ describe('resource measurements', () => {
         'INSERT INTO activity_events (ip, iso, ts, lookup_type, channel, actor, target, outcome, partial) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
       .run('203.0.113.1', 'US', 1, 'page', 'ui', 'browser', null, 'success', 0);
-    writeFileSync(join(dataPath, 'echo.db-wal'), 'wal');
-    writeFileSync(join(dataPath, 'echo.db-shm'), 'shm');
+    writeFileSync(`${databasePath}-wal`, 'wal');
+    writeFileSync(`${databasePath}-shm`, 'shm');
     writeFileSync(join(dataPath, 'uploads.bin'), 'other');
 
     const sample = readResourceSample(1_700_000_000_000);
@@ -117,6 +123,24 @@ describe('resource measurements', () => {
     expect(sample.lookupRows).toBe(1);
     expect(sample.activityRows).toBe(1);
     expect(sample.dataUsedBytes).toBeGreaterThanOrEqual(19);
+  });
+
+  it('does not subtract configured database files outside data from other data', () => {
+    const databasePath = join(root, 'outside.sqlite');
+    process.env.RESOURCE_DATABASE_PATH = databasePath;
+    writeFileSync(databasePath, 'database');
+    writeFileSync(`${databasePath}-wal`, 'wal');
+    writeFileSync(`${databasePath}-shm`, 'shm');
+    writeFileSync(join(dataPath, 'echo.db-wal'), 'legacy-wal');
+    writeFileSync(join(dataPath, 'echo.db-shm'), 'legacy-shm');
+    writeFileSync(join(dataPath, 'local.bin'), 'local');
+
+    const sample = readResourceSample(1_700_000_000_000);
+
+    expect(sample.databaseBytes).toBe(8);
+    expect(sample.walBytes).toBe(3);
+    expect(sample.shmBytes).toBe(3);
+    expect(sample.otherDataBytes).toBe(5 + 10 + 10);
   });
 
   it('reports uptime and an optional image size', () => {
@@ -136,12 +160,55 @@ describe('resource sampler lifecycle', () => {
     expect(getResourceSamplerStatus()).toMatchObject({ enabled: false, running: false });
   });
 
+  it('does not start directly in test mode even when ADMIN_TOKEN is configured', () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    process.env.ADMIN_TOKEN = 'configured';
+
+    samplerCleanup = startResourceSampler();
+    expect(samplerCleanup).toBeNull();
+    expect(getResourceSamplerStatus()).toMatchObject({ enabled: false, running: false });
+  });
+
+  it('stops sampling after ADMIN_TOKEN is removed', () => {
+    process.env.ADMIN_TOKEN = 'configured';
+    vi.useFakeTimers();
+    samplerCleanup = startResourceSampler();
+
+    expect(samplerCleanup).toEqual(expect.any(Function));
+    delete process.env.ADMIN_TOKEN;
+    vi.advanceTimersByTime(FIVE_MINUTES_MS);
+
+    expect(getDb().prepare('SELECT COUNT(*) AS count FROM resource_samples').get()).toEqual({ count: 1 });
+    expect(getResourceSamplerStatus()).toMatchObject({ enabled: false, running: false });
+    samplerCleanup?.();
+  });
+
+  it('clears the CPU baseline when the sampler is stopped and restarted', () => {
+    process.env.ADMIN_TOKEN = 'configured';
+    vi.useFakeTimers();
+    vi.setSystemTime(1_700_000_000_000);
+    samplerCleanup = startResourceSampler();
+
+    setFile(join(cgroupPath, 'cpu.stat'), 'usage_usec 200000\n');
+    vi.advanceTimersByTime(FIVE_MINUTES_MS);
+    samplerCleanup?.();
+    samplerCleanup = null;
+
+    setFile(join(cgroupPath, 'cpu.stat'), 'usage_usec 300000\n');
+    samplerCleanup = startResourceSampler();
+
+    const sample = getDb()
+      .prepare('SELECT cpu_percent AS cpuPercent FROM resource_samples ORDER BY id DESC LIMIT 1')
+      .get() as { cpuPercent: number | null };
+    expect(sample.cpuPercent).toBeNull();
+  });
+
   it('starts with a sample, schedules every five minutes, prunes 30-day history, and cleans up', () => {
     process.env.ADMIN_TOKEN = 'configured';
     vi.useFakeTimers();
-    const cleanup = startResourceSampler();
+    samplerCleanup = startResourceSampler();
 
-    expect(cleanup).toEqual(expect.any(Function));
+    expect(samplerCleanup).toEqual(expect.any(Function));
     expect(getDb().prepare('SELECT COUNT(*) AS count FROM resource_samples').get()).toEqual({ count: 1 });
     expect(getResourceSamplerStatus()).toMatchObject({ enabled: true, running: true });
 
@@ -156,7 +223,7 @@ describe('resource sampler lifecycle', () => {
     expect(pruneResourceSamples(now)).toBe(1);
     expect(getDb().prepare('SELECT COUNT(*) AS count FROM resource_samples').get()).toEqual({ count: 3 });
 
-    cleanup?.();
+    samplerCleanup?.();
     expect(getResourceSamplerStatus()).toMatchObject({ enabled: true, running: false });
     vi.advanceTimersByTime(FIVE_MINUTES_MS);
     expect(getDb().prepare('SELECT COUNT(*) AS count FROM resource_samples').get()).toEqual({ count: 3 });
@@ -164,11 +231,12 @@ describe('resource sampler lifecycle', () => {
 
   it('does not create duplicate samplers', () => {
     process.env.ADMIN_TOKEN = 'configured';
-    const first = startResourceSampler();
+    const first = (samplerCleanup = startResourceSampler());
     const second = startResourceSampler();
 
     expect(first).toEqual(expect.any(Function));
     expect(second).toBeNull();
     first?.();
+    samplerCleanup = null;
   });
 });

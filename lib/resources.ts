@@ -1,11 +1,11 @@
 import { readdirSync, readFileSync, statfsSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { getDb, insertResourceSample, type ResourceSampleRecord } from './db';
 
 const FIVE_MINUTES_MS = 300_000;
 const RESOURCE_RETENTION_MS = 30 * 86_400_000;
 
-export interface ResourceSampleInput extends ResourceSampleRecord {}
+export type ResourceSampleInput = ResourceSampleRecord;
 
 export interface ResourceSamplerStatus {
   enabled: boolean;
@@ -26,7 +26,7 @@ let lastSuccessTs: number | null = null;
 let lastError: string | null = null;
 
 function adminConfigured(): boolean {
-  return Boolean(process.env.ADMIN_TOKEN?.trim());
+  return process.env.NODE_ENV !== 'test' && Boolean(process.env.ADMIN_TOKEN?.trim());
 }
 
 function readNumber(path: string): number | null {
@@ -138,8 +138,8 @@ function dataMeasurement(): Pick<ResourceSampleInput, 'dataUsedBytes' | 'databas
   const root = dataPath();
   const databasePath = process.env.RESOURCE_DATABASE_PATH ?? process.env.DB_PATH ?? join(root, 'echo.db');
   const databaseBytes = fileSize(databasePath);
-  const walBytes = fileSize(`${databasePath}-wal`) || fileSize(join(root, 'echo.db-wal'));
-  const shmBytes = fileSize(`${databasePath}-shm`) || fileSize(join(root, 'echo.db-shm'));
+  const walBytes = fileSize(`${databasePath}-wal`);
+  const shmBytes = fileSize(`${databasePath}-shm`);
   let dataUsedBytes: number | null = null;
   try {
     const stat = statfsSync(root);
@@ -147,8 +147,14 @@ function dataMeasurement(): Pick<ResourceSampleInput, 'dataUsedBytes' | 'databas
   } catch {
     dataUsedBytes = directorySize(root);
   }
-  const databaseInData = relative(root, databasePath) && !relative(root, databasePath).startsWith('..') ? databaseBytes : 0;
-  const otherDataBytes = Math.max(0, directorySize(root) - databaseInData - walBytes - shmBytes);
+  const rootPath = resolve(root);
+  const componentPaths = [databasePath, `${databasePath}-wal`, `${databasePath}-shm`];
+  const dataComponents = componentPaths.filter((path) => {
+    const relativePath = relative(rootPath, resolve(path));
+    return relativePath !== '' && !relativePath.startsWith('..') && !isAbsolute(relativePath);
+  });
+  const dataComponentBytes = dataComponents.reduce((total, path) => total + fileSize(path), 0);
+  const otherDataBytes = Math.max(0, directorySize(root) - dataComponentBytes);
   return { dataUsedBytes, databaseBytes, walBytes, shmBytes, otherDataBytes };
 }
 
@@ -209,28 +215,39 @@ function saveResourceSample(): void {
   lastError = null;
 }
 
+function stopResourceSampler(): void {
+  if (samplerTimer) clearInterval(samplerTimer);
+  samplerTimer = null;
+  lastCpuSample = null;
+}
+
 export function startResourceSampler(): (() => void) | null {
-  if (!adminConfigured() || samplerTimer) return null;
+  if (!adminConfigured()) {
+    if (samplerTimer) stopResourceSampler();
+    return null;
+  }
+  if (samplerTimer) return null;
   try {
     saveResourceSample();
   } catch {
     lastError = 'sample_failed';
   }
   samplerTimer = setInterval(() => {
+    if (!adminConfigured()) {
+      stopResourceSampler();
+      return;
+    }
     try {
       saveResourceSample();
     } catch {
       lastError = 'sample_failed';
     }
   }, FIVE_MINUTES_MS);
-  return () => {
-    if (!samplerTimer) return;
-    clearInterval(samplerTimer);
-    samplerTimer = null;
-  };
+  return stopResourceSampler;
 }
 
 export function getResourceSamplerStatus(): ResourceSamplerStatus {
+  if (!adminConfigured() && samplerTimer) stopResourceSampler();
   return {
     enabled: adminConfigured(),
     running: samplerTimer !== null,
