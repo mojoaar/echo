@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-08-20
+
 ### Fixed
 
 - DNS result timestamps now use strict ISO 8601 formatting with the browser's local timezone offset
