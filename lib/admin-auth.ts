@@ -98,6 +98,10 @@ export function adminCookieOptions(maxAge: number): {
   return { httpOnly: true, secure: true, sameSite: 'strict', path: '/', maxAge };
 }
 
+export function adminSessionTtlSeconds(): number {
+  return sessionTtlSeconds();
+}
+
 export function adminNoStoreHeaders(): Record<string, string> {
   return { 'cache-control': 'no-store' };
 }

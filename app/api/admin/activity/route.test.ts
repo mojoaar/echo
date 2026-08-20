@@ -1,0 +1,89 @@
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { closeDb, getDb, initDb } from '@/lib/db';
+import { createAdminSession } from '@/lib/admin-auth';
+import * as activity from '@/lib/activity';
+import { GET } from './route';
+
+let cookie = '';
+
+beforeAll(() => {
+  process.env.ADMIN_TOKEN = 'admin-secret';
+  const dir = mkdtempSync(join(tmpdir(), 'echo-admin-activity-'));
+  initDb(join(dir, 'test.db'));
+  getDb().prepare(
+    'INSERT INTO activity_events (ip, iso, ts, lookup_type, channel, actor, target, outcome, partial) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  ).run('203.0.113.10', 'US', Date.parse('2026-08-19T10:00:00Z'), 'dns', 'api', 'bot', 'example.com', 'success', 0);
+  getDb().prepare(
+    'INSERT INTO activity_events (ip, iso, ts, lookup_type, channel, actor, target, outcome, partial) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  ).run('203.0.113.11', 'DK', Date.parse('2026-08-19T11:00:00Z'), 'ip', 'ui', 'browser', null, 'partial', 1);
+  cookie = `echo_admin_session=${createAdminSession()}`;
+});
+
+afterAll(() => {
+  closeDb();
+  delete process.env.ADMIN_TOKEN;
+});
+
+describe('GET /api/admin/activity', () => {
+  it('requires authentication and never enables CORS', async () => {
+    const response = await GET(new Request('https://echo.test/api/admin/activity'));
+    expect(response.status).toBe(404);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
+  it('validates dates, retention range, and filter values before querying', async () => {
+    const invalidDate = await GET(new Request('https://echo.test/api/admin/activity?from=not-a-date', { headers: { cookie } }));
+    const impossibleDate = await GET(new Request('https://echo.test/api/admin/activity?from=2026-02-30', { headers: { cookie } }));
+    const future = await GET(new Request('https://echo.test/api/admin/activity?to=2999-01-01', { headers: { cookie } }));
+    const invalidFilter = await GET(new Request('https://echo.test/api/admin/activity?type=unknown', { headers: { cookie } }));
+    const tooWide = await GET(new Request('https://echo.test/api/admin/activity?from=2020-01-01&to=2026-08-20', { headers: { cookie } }));
+
+    expect(invalidDate.status).toBe(400);
+    expect(impossibleDate.status).toBe(400);
+    expect(future.status).toBe(400);
+    expect(invalidFilter.status).toBe(400);
+    expect(tooWide.status).toBe(400);
+    expect(await invalidDate.json()).toEqual({ error: 'invalid input', code: 'invalid_input' });
+  });
+
+  it('applies bounded filters and pagination to activity results', async () => {
+    const response = await GET(new Request(
+      'https://echo.test/api/admin/activity?from=2026-08-19&to=2026-08-19&type=dns&channel=api&actor=bot&country=us&outcome=success&ip=203.0.113.10&limit=1&offset=0',
+      { headers: { cookie } },
+    ));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.events).toHaveLength(1);
+    expect(body.events[0]).toMatchObject({ ip: '203.0.113.10', lookupType: 'dns', actor: 'bot' });
+    expect(body.legacy).toEqual([]);
+    expect(body.events[0].partial).toBe(false);
+  });
+
+  it('accepts a zero limit as an empty page', async () => {
+    const response = await GET(new Request('https://echo.test/api/admin/activity?limit=0', { headers: { cookie } }));
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).events).toEqual([]);
+  });
+
+  it('returns a stable redacted internal error', async () => {
+    const query = vi.spyOn(activity, 'queryActivity').mockImplementation(() => {
+      throw new Error('database path and secret should not leak');
+    });
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      const response = await GET(new Request('https://echo.test/api/admin/activity', { headers: { cookie } }));
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({ error: 'internal server error', code: 'internal_error' });
+      expect(JSON.stringify(error.mock.calls)).not.toContain('database path');
+    } finally {
+      query.mockRestore();
+      error.mockRestore();
+    }
+  });
+});

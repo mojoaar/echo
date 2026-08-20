@@ -6,7 +6,7 @@ export interface RateLimitResult {
 }
 
 export type RateLimiter = ReturnType<typeof createRateLimiter>;
-export type RateLimiterName = 'json' | 'ip' | 'history' | 'whois' | 'dns' | 'stats-auth';
+export type RateLimiterName = 'json' | 'ip' | 'history' | 'whois' | 'dns' | 'stats-auth' | 'admin-login';
 
 interface RateLimiterOptions {
   max: number;
@@ -70,6 +70,7 @@ const limiterDefaults: Record<RateLimiterName, { max: number; windowMs: number }
   whois: { max: 10, windowMs: 60_000 },
   dns: { max: 10, windowMs: 60_000 },
   'stats-auth': { max: 5, windowMs: 60_000 },
+  'admin-login': { max: 5, windowMs: 60_000 },
 };
 
 const limiters = new Map<RateLimiterName, RateLimiter>();
