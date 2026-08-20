@@ -78,8 +78,6 @@ Result: exited 0 with no whitespace errors.
 
 Implementation commit: `a0fb18f`
 
-Report commit: `pending`
-
 ## Concerns
 
 - Vitest emits the existing non-fatal Vite warning about ESM syntax in `vitest.config.ts` being loaded as CommonJS.
