@@ -165,11 +165,13 @@ export default function DocsPage() {
 
           <h2 id="overview">Overview</h2>
           <p>
-            All public endpoints are <code>GET</code>, return JSON with{' '}
-            <code>Access-Control-Allow-Origin: *</code>, and are rate limited per
-            visitor IP. The visitor IP is read from <code>X-Real-IP</code> first, then{' '}
-            <code>X-Forwarded-For</code>; your reverse proxy must overwrite these
-            headers with the verified client address.
+            All public endpoints are <code>GET</code>. JSON endpoints return{' '}
+            <code>Access-Control-Allow-Origin: *</code> and are rate limited per
+            visitor IP — <code>/api/ip</code> returns plain text without CORS, and{' '}
+            <code>/api/stats</code> and <code>/api/health</code> omit CORS (health
+            is unthrottled). The visitor IP is read from <code>X-Real-IP</code>{' '}
+            first, then <code>X-Forwarded-For</code>; your reverse proxy must
+            overwrite these headers with the verified client address.
           </p>
           <p>JSON errors use a stable shape:</p>
           <Code>{`{ "error": "human readable message", "code": "stable_code" }`}</Code>
@@ -219,7 +221,7 @@ export default function DocsPage() {
   "utcOffset": "-07:00",
   "latitude": 37.422,
   "longitude": -122.085,
-  "hostname": "dns.google",
+  "hostname": null,
   "isPrivate": false
 }`}</Code>
           </Endpoint>
@@ -306,7 +308,7 @@ export default function DocsPage() {
             <tbody>
               <tr><td>APP_URL</td><td>https://echo.johansen.foo</td><td>Public origin used for metadata, sitemap and share links</td></tr>
               <tr><td>TZ</td><td>Europe/Copenhagen</td><td>Container timezone for logs and admin timestamps</td></tr>
-              <tr><td>RATE_LIMIT_MAX</td><td>(per endpoint)</td><td>Legacy global fallback for request budget per window</td></tr>
+              <tr><td>RATE_LIMIT_MAX</td><td>30</td><td>Legacy global fallback for request budget per window</td></tr>
               <tr><td>RATE_LIMIT_WINDOW_MS</td><td>60000</td><td>Legacy global fallback window</td></tr>
               <tr><td>RATE_LIMIT_&lt;ENDPOINT&gt;_MAX</td><td>ip 60, json 30, history 30, whois 10, dns 10, stats-auth 5</td><td>Per-endpoint budget</td></tr>
               <tr><td>RATE_LIMIT_&lt;ENDPOINT&gt;_WINDOW_MS</td><td>60000</td><td>Per-endpoint window</td></tr>
