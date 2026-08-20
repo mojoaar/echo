@@ -77,6 +77,14 @@ describe('resource measurements', () => {
     expect(sample.localTs).toBe('2023-11-14 22:13:20');
   });
 
+  it('falls back to UTC for an invalid configured timezone', () => {
+    process.env.TZ = 'Invalid/Timezone';
+
+    const sample = readResourceSample(1_700_000_000_000);
+
+    expect(sample.localTs).toBe('2023-11-14 22:13:20');
+  });
+
   it('falls back to cgroup v1 memory files', () => {
     rmSync(join(cgroupPath, 'memory.current'));
     rmSync(join(cgroupPath, 'memory.max'));

@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, realpathSync, statfsSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative } from 'node:path';
+import { containerTimezone } from './admin-date';
 import { getDb, insertResourceSample, type ResourceSampleRecord } from './db';
 
 const FIVE_MINUTES_MS = 300_000;
@@ -166,7 +167,7 @@ function dataMeasurement(): Pick<ResourceSampleInput, 'dataUsedBytes' | 'databas
 function localTimestamp(nowMs: number): string | null {
   try {
     const parts = new Intl.DateTimeFormat('sv-SE', {
-      timeZone: process.env.TZ || 'UTC',
+      timeZone: containerTimezone(),
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',

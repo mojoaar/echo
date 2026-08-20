@@ -104,6 +104,60 @@ git diff --check
 
 Result: exited `0` with no whitespace errors.
 
+## Final Task 9 Minor Fix
+
+`lib/resources.ts` now uses the existing `containerTimezone()` helper for sampler `localTs` formatting. Invalid or missing `TZ` values therefore fall back to `UTC` consistently with admin date and page handling. Resource measurement and sampler lifecycle behavior are unchanged.
+
+Regression coverage: `lib/resources.test.ts` verifies that an invalid configured timezone produces the UTC local timestamp instead of `null`.
+
+## Final Fix TDD Evidence
+
+Focused RED command:
+
+```text
+npx vitest run lib/resources.test.ts
+```
+
+Result: `1` regression failed as expected with invalid `TZ` producing `localTs: null`.
+
+Focused GREEN command:
+
+```text
+npx vitest run lib/resources.test.ts
+```
+
+Result: `1` test file passed and `15` tests passed.
+
+## Final Fix Verification
+
+Full tests:
+
+```text
+npm test
+```
+
+Result: `35` test files passed and `284` tests passed.
+
+Typecheck/lint:
+
+```text
+npm run lint
+```
+
+Result: `tsc --noEmit` exited `0`.
+
+Whitespace validation:
+
+```text
+git diff --check
+```
+
+Result: exited `0` with no whitespace errors.
+
+## Final Fix Concerns
+
+- Vitest continues to emit the existing non-fatal warning that `vitest.config.ts` uses ESM syntax while loaded as CommonJS.
+
 ## Concerns
 
 - Vitest continues to emit the existing non-fatal warning that `vitest.config.ts` uses ESM syntax while loaded as CommonJS.
