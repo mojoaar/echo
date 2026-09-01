@@ -144,6 +144,12 @@ export default function DocsPage() {
             city-level location. Copy and copy-as-JSON buttons put the IP or the full
             lookup payload on your clipboard. Clipboard failures are reported honestly.
           </p>
+          <p>
+            Map tiles come from CARTO basemaps, which require an API key to avoid the
+            "API key required" watermark. Create a key on the{' '}
+            <a href="https://carto.com/basemaps/apikey/" target="_blank" rel="noopener noreferrer">CARTO basemaps API key page</a>{' '}
+            and set it via <code>CARTO_BASEMAP_KEY</code> (see the environment table below).
+          </p>
 
           <h2 id="connectivity">Connectivity diagnostics</h2>
           <p>
