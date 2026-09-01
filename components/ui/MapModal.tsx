@@ -54,24 +54,23 @@ function ensureLeaflet(): Promise<void> {
   return leafletPromise;
 }
 
-function tileTheme(): string {
-  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
-  return dark
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+export function tileUrl(theme: 'dark' | 'light', apiKey?: string): string {
+  const style = theme === 'dark' ? 'dark_all' : 'light_all';
+  const url = `https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png`;
+  return apiKey ? `${url}?key=${encodeURIComponent(apiKey)}` : url;
 }
 
-export function MapTrigger({ lat, lon }: { lat: number; lon: number }) {
+export function MapTrigger({ lat, lon, apiKey }: { lat: number; lon: number; apiKey?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button className="btn" onClick={() => setOpen(true)}>Open map</button>
-      {open && <MapModal lat={lat} lon={lon} onClose={() => setOpen(false)} />}
+      {open && <MapModal lat={lat} lon={lon} apiKey={apiKey} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-export default function MapModal({ lat, lon, onClose }: { lat: number; lon: number; onClose: () => void }) {
+export default function MapModal({ lat, lon, apiKey, onClose }: { lat: number; lon: number; apiKey?: string; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -85,8 +84,9 @@ export default function MapModal({ lat, lon, onClose }: { lat: number; lon: numb
       .then(() => {
         if (cancelled || !ref.current || !window.L) return;
         const L = window.L;
+        const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
         map = L.map(ref.current, { scrollWheelZoom: false }).setView([lat, lon], 11) as unknown as { remove: () => void; invalidateSize: () => void };
-        L.tileLayer(tileTheme(), {
+        L.tileLayer(tileUrl(theme, apiKey), {
           attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
           subdomains: 'abcd',
           maxZoom: 19,
@@ -109,7 +109,7 @@ export default function MapModal({ lat, lon, onClose }: { lat: number; lon: numb
       cancelled = true;
       if (map) map.remove();
     };
-  }, [lat, lon]);
+  }, [lat, lon, apiKey]);
 
   useEffect(() => {
     const node = dialogRef.current;

@@ -3,6 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { closeDb, getDb, initDb } from '@/lib/db';
+import { containerDate } from '@/lib/admin-date';
 import { createAdminSession } from '@/lib/admin-auth';
 import * as db from '@/lib/db';
 import * as resources from '@/lib/resources';
@@ -58,9 +59,14 @@ describe('GET /api/admin/resources', () => {
   });
 
   it('rejects resource history ranges over 30 days and future dates', async () => {
-    const tooWide = await GET(new Request('https://echo.test/api/admin/resources?from=2026-01-01&to=2026-02-01', { headers: { cookie } }));
-    const future = await GET(new Request('https://echo.test/api/admin/resources?to=2999-01-01', { headers: { cookie } }));
-    const nearFuture = await GET(new Request('https://echo.test/api/admin/resources?from=2026-08-20&to=2026-08-21', { headers: { cookie } }));
+    const DAY_MS = 86_400_000;
+    const tooWideFrom = containerDate(Date.now() - 45 * DAY_MS);
+    const tooWideTo = containerDate(Date.now() - 5 * DAY_MS);
+    const futureTo = containerDate(Date.now() + DAY_MS);
+    const today = containerDate();
+    const tooWide = await GET(new Request(`https://echo.test/api/admin/resources?from=${tooWideFrom}&to=${tooWideTo}`, { headers: { cookie } }));
+    const future = await GET(new Request(`https://echo.test/api/admin/resources?to=${futureTo}`, { headers: { cookie } }));
+    const nearFuture = await GET(new Request(`https://echo.test/api/admin/resources?from=${today}&to=${futureTo}`, { headers: { cookie } }));
 
     expect(tooWide.status).toBe(400);
     expect(future.status).toBe(400);

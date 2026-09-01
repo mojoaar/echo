@@ -47,6 +47,7 @@ services:
       ECHO_IMAGE_SIZE_BYTES: ${ECHO_IMAGE_SIZE_BYTES:-}
       UMAMI_SCRIPT_URL: ${UMAMI_SCRIPT_URL:-https://umami.johansen.foo/script.js}
       UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-2dd1b560-7022-49d1-8063-bd3ccc99f21d}
+      CARTO_BASEMAP_KEY: ${CARTO_BASEMAP_KEY:-}
 
 volumes:
   echo-data:

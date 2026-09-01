@@ -327,6 +327,7 @@ export default function DocsPage() {
               <tr><td>ECHO_IMAGE_SIZE_BYTES</td><td>(unset)</td><td>Optional deployed image size shown in admin resources</td></tr>
               <tr><td>UMAMI_SCRIPT_URL</td><td>https://umami.johansen.foo/script.js</td><td>Umami script URL; analytics only when set</td></tr>
               <tr><td>UMAMI_WEBSITE_ID</td><td>(unset)</td><td>Umami website id; analytics only when set</td></tr>
+              <tr><td>CARTO_BASEMAP_KEY</td><td>(unset)</td><td>API key for CARTO basemap tiles; avoids the "API key required" watermark</td></tr>
             </tbody>
           </table>
 

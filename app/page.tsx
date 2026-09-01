@@ -243,7 +243,7 @@ export default async function Page({
             }
           >
             {info?.latitude != null && info?.longitude != null ? (
-              <MapTrigger lat={info.latitude} lon={info.longitude} />
+              <MapTrigger lat={info.latitude} lon={info.longitude} apiKey={process.env.CARTO_BASEMAP_KEY} />
             ) : null}
           </InfoCard>
           <InfoCard
