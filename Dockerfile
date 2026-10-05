@@ -17,6 +17,7 @@ RUN npx next build
 FROM node:22-slim AS runtime
 
 RUN apt-get update \
+  && DEBIAN_FRONTEND=noninteractive apt-get -y upgrade \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata \
   && rm -rf /var/lib/apt/lists/*
 
