@@ -13,6 +13,8 @@ import { GET } from './route';
 let cookie = '';
 
 beforeAll(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-08-19T12:00:00.000Z'));
   process.env.ADMIN_TOKEN = 'admin-secret';
   const dir = mkdtempSync(join(tmpdir(), 'echo-admin-resources-'));
   initDb(join(dir, 'test.db'));
@@ -24,6 +26,7 @@ beforeAll(() => {
 afterAll(() => {
   closeDb();
   delete process.env.ADMIN_TOKEN;
+  vi.useRealTimers();
 });
 
 describe('GET /api/admin/resources', () => {
